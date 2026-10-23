@@ -1,0 +1,117 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+`near` is a FAR Manager–style dual pane file manager for the terminal, written in Go on
+`github.com/gdamore/tcell/v2`. Single `package main`, no subpackages. It targets Linux first
+but builds and is developed on Windows.
+
+## Commands
+
+```sh
+go build -o near.exe .                               # Windows build (dev box)
+GOOS=linux  GOARCH=amd64 go build -o near-linux-amd64 .
+GOOS=darwin GOARCH=arm64 go build -o /tmp/near-mac . # keep the macOS build compiling
+go vet ./... && gofmt -l .                           # both expected to be clean
+go test ./...                                        # whole suite (~7 s, includes live watcher tests)
+go test -run 'TestEditorBasics|TestWatcherNative' -v .   # single tests
+./near.exe -defaults > config.toml                   # print the current default config
+./near.exe -config ./some.toml                       # run against an alternative config
+```
+
+CI (`.github/workflows/ci.yml`) runs gofmt/vet/tests on Linux, Windows and macOS and
+cross-compiles every release target. A `v*` tag triggers `release.yml`, which builds archives
+for linux/darwin/windows/freebsd with `-X main.version=<tag>` and publishes them with
+`gh release create`. Releases are cut by tagging: `git tag -a v0.0.2 -m ... && git push --tags`.
+
+The developer's live config is `%APPDATA%\near\config.toml`. Whenever a default key binding
+changes it has been regenerated with `near -defaults` (after checking it was still the
+untouched generated file); `config.toml.bak` next to it is the first version.
+
+## Architecture
+
+**Event loop and key routing** (`app.go`). `App.run` draws, polls one tcell event, handles it.
+`handleKey` has a strict precedence that every new feature must respect:
+
+1. If any dialog is open, the top of `App.dialogs` gets the key. Nothing else runs.
+2. Active quick search (`qsActive`) consumes printable keys, Alt+char, Backspace, Up/Down, Esc, Enter.
+3. An unbound Alt+char starts a quick search (FAR behaviour). Bound Alt combinations win, which is
+   why default bindings avoid Alt+letter.
+4. The command line is always focused: with text in it, Enter/Esc/editing keys go to it; printable
+   characters go to it unless the line is empty **and** the character is bound to an action
+   (`+ - * Space`).
+5. Otherwise `keymap[keyName(ev)]` → `doAction(name)`.
+
+**Dialogs** are anything drawn over the panels: `Dialog` interface = `HandleKey(a, ev)` +
+`Draw(a)`. Input, confirm, list (menus/histories), text (notes), mass rename, search, viewer,
+diff viewer and the editor are all dialogs on one stack. Callbacks run after `a.pop()`, so a
+callback may push the next dialog (menus → submenus, replace loop, save prompts). The
+`ListDialog.OnKey` hook is how histories implement Delete/Ctrl+T/Shift+Enter.
+
+**Actions** are strings. Adding one means touching three places: the default `[keys]` table inside
+`defaultConfigTextFor` (`config.go`), the `switch` in `doAction` (`app.go`), and `actionHelp`
+(`keys.go`, feeds the F1 screen). Menus from the config are bound as `menu:<name>`.
+Key names are canonicalised by `keyName` (tcell event → "Ctrl+Shift+Up", "F5", "a") and
+`normKey` (config string → same form); tests build events with `eventFor` in `app_test.go`, which
+needs a case for each special key it is asked for (it silently sends a rune otherwise).
+
+**Config** (`config.go`): the defaults *are* the TOML text in `defaultConfigTextFor` — it is parsed
+to produce the default `Config`, then the user's file is decoded over it. BurntSushi/toml merges
+maps (`[keys]`: unlisted actions keep defaults) but replaces slices (`[[menus]]`,
+`search_exclude`). `TestDefaultConfigParsesOnEveryPlatform` guards the embedded text.
+
+**Panels and drawing** (`model.go`, `draw.go`). `Panel` holds `Tab`s; a `Tab` is a directory
+listing with cursor, selection map, sort, per-directory notes and a cursor-position memory.
+`App.navigate` is the only way to change a tab's directory (it records folder history).
+`draw.go` lays out: two panels (`panelChrome` = 7 fixed rows per panel, `bottomRows` = 3 for
+status, command line, key bar), hidden/resized panels (`hidden`, `hideAll`, `heights`, `split`),
+then the dialog stack. The FAR-like column layout (centred titles, `│` separators, sort letter,
+`Up`/`Folder`, centred footer) is matched by `TestPanelLooksLikeFar`.
+
+**Long operations** run synchronously inside the event loop and call `a.progress(title, item)`,
+which redraws and returns false if Esc is queued (copy/move/delete, content compare).
+
+**Shell and editor** (`commands.go`): `runShell` suspends tcell, runs via `shellCommand`
+(platform file; `cmd /S /C` with raw `CmdLine` on Windows, `sh -c` elsewhere), optionally waits
+for Enter, resumes. `editFileThen(path, external, done)` is the single entry for editing — the
+built-in `Editor` dialog calls `done` from its close callback, the external editor blocks, so
+callers (mass rename's F4 flow) must not assume synchronous completion.
+
+**Search index** (`search.go`, `watch*.go`). `Index.dirs` is `map[directory][]names` (every
+directory is a key), chosen so watcher events are cheap to apply. Build walks `search_roots`
+in a goroutine; results are announced by posting `EventIndexDone`/`EventIndexChanged` to the
+tcell screen (the loop only redraws). Watch backends implement `fsWatcher`: `watch_windows.go`
+is a native recursive `ReadDirectoryChangesW` (one handle per root); `watch.go` wraps fsnotify
+with one watch per directory, capped by `search_watch_max_dirs`. Events are batched, a create is
+applied as remove+add (idempotent), overflow triggers a rebuild. On Windows the tests exercise
+both backends (`TestWatcherNative`, `TestWatcherPortable`); the fsnotify path is what Linux runs.
+Cache is a gob of the map in the config dir; an old-format cache is rejected and rebuilt.
+
+**Editor** (`editor.go`): lines as `[][]rune`; every mutation goes through `edit(r1,c1,r2,c2,ins)`
+which returns an `editRec`; undo/redo replay those records, consecutive typing is merged.
+
+**Platform files** use build tags: `platform_windows.go`/`platform_other.go` (hidden attribute,
+drives/mounts, open-with-OS, shell), `watch_windows.go`/`watch_other.go`.
+
+## Testing approach
+
+All UI tests are headless via `tcell.NewSimulationScreen`: `testApp(t)` builds a temp tree and an
+`App`, `key(a, "Ctrl+F6")` / `typeText` feed `handleEvent` directly (no run loop), `screenText(a)`
+dumps the rendered screen for assertions. To look at a layout change, write a throwaway test
+that prints `screenText` and run it with `-run ... -v`. Watcher tests poll with `waitFor`.
+A one-off test that loads the developer's real 5-million-entry cache was used for timing;
+name searches are ~0.3 s there, which is why the search dialog only searches when no key is
+queued (`SearchDialog.dirty` + `HasPendingEvent`).
+
+## Gotchas
+
+- Do not patch Go source through a bash heredoc/`sed`/`printf` when the text contains `\n` or
+  `\"`: the escapes become real newlines (this broke `draw.go` once). Use the Edit/Write tools, or
+  write the patch script to a file first.
+- `tcell.Style.Decompose()` returns three values; take `_, bg, _ :=` before calling `.Background(bg)`.
+- `keyName` reports Ctrl+H/I/M as Backspace/Tab/Enter; they cannot be bound separately.
+- Ctrl+Enter only arrives as a distinct key on terminals with modifyOtherKeys/kitty/win32-input
+  support (tcell enables them); Ctrl+J is the bound fallback.
+- Build artifacts `near.exe`, `near-linux-*` live in the repo root and are git-ignored.

@@ -1,0 +1,393 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/BurntSushi/toml"
+)
+
+// MenuItem is one line of a custom menu.
+type MenuItem struct {
+	Title   string `toml:"title"`
+	Command string `toml:"command,omitempty"`
+	Hotkey  string `toml:"hotkey,omitempty"`
+	Submenu string `toml:"submenu,omitempty"`
+	Detach  bool   `toml:"detach,omitempty"`
+	NoWait  bool   `toml:"nowait,omitempty"`
+	Confirm bool   `toml:"confirm,omitempty"`
+	Cwd     string `toml:"cwd,omitempty"`
+}
+
+// Menu is a custom menu, optionally bound to a key.
+type Menu struct {
+	Name  string     `toml:"name"`
+	Key   string     `toml:"key,omitempty"`
+	Items []MenuItem `toml:"items"`
+}
+
+// Bookmark is a named directory shown in the locations dialog.
+type Bookmark struct {
+	Name string `toml:"name"`
+	Path string `toml:"path"`
+}
+
+// Config is the on-disk configuration.
+type Config struct {
+	Editor             string              `toml:"editor"`
+	Shell              string              `toml:"shell"`
+	Theme              string              `toml:"theme"`
+	ShowHidden         bool                `toml:"show_hidden"`
+	ConfirmDelete      bool                `toml:"confirm_delete"`
+	CommandWait        bool                `toml:"command_wait"`
+	DateFormat         string              `toml:"date_format"`
+	TimeFormat         string              `toml:"time_format"`
+	InternalEditor     bool                `toml:"internal_editor"`
+	EditorTabSize      int                 `toml:"editor_tab_size"`
+	NotesFile          string              `toml:"notes_file"`
+	SearchRoots        []string            `toml:"search_roots"`
+	SearchExclude      []string            `toml:"search_exclude"`
+	SearchMaxResults   int                 `toml:"search_max_results"`
+	SearchIndexOnStart bool                `toml:"search_index_on_start"`
+	SearchWatch        bool                `toml:"search_watch"`
+	SearchWatchMaxDirs int                 `toml:"search_watch_max_dirs"`
+	Keys               map[string][]string `toml:"keys"`
+	Menus              []Menu              `toml:"menus"`
+	Bookmarks          []Bookmark          `toml:"bookmarks"`
+
+	dir  string // directory holding config, state and index cache
+	path string
+}
+
+func configDir(override string) string {
+	if override != "" {
+		return filepath.Dir(override)
+	}
+	base, err := os.UserConfigDir()
+	if err != nil {
+		home, _ := os.UserHomeDir()
+		base = filepath.Join(home, ".config")
+	}
+	return filepath.Join(base, "near")
+}
+
+// loadConfig reads the config file, creating it with defaults on first run.
+// Values in the file override the defaults; unknown actions in [keys] are
+// kept so that menus can bind to them.
+func loadConfig(path string) (*Config, error) {
+	dir := configDir(path)
+	if path == "" {
+		path = filepath.Join(dir, "config.toml")
+	}
+	cfg := &Config{}
+	if _, err := toml.Decode(defaultConfigText(), cfg); err != nil {
+		return nil, fmt.Errorf("internal default config: %w", err)
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		_ = os.MkdirAll(dir, 0o755)
+		_ = os.WriteFile(path, []byte(defaultConfigText()), 0o644)
+	} else if _, err := toml.DecodeFile(path, cfg); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	if cfg.SearchMaxResults <= 0 {
+		cfg.SearchMaxResults = 500
+	}
+	if cfg.DateFormat == "" {
+		cfg.DateFormat = "2006-01-02"
+	}
+	if cfg.TimeFormat == "" {
+		cfg.TimeFormat = "15:04"
+	}
+	if cfg.EditorTabSize <= 0 {
+		cfg.EditorTabSize = 4
+	}
+	if cfg.NotesFile == "" {
+		cfg.NotesFile = ".near-notes"
+	}
+	cfg.dir = dir
+	cfg.path = path
+	return cfg, nil
+}
+
+func (c *Config) menu(name string) *Menu {
+	for i := range c.Menus {
+		if strings.EqualFold(c.Menus[i].Name, name) {
+			return &c.Menus[i]
+		}
+	}
+	return nil
+}
+
+// expandPath expands a leading ~ and environment variables.
+func expandPath(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, "~\\") {
+		home, _ := os.UserHomeDir()
+		p = home + p[1:]
+	}
+	p = os.ExpandEnv(p)
+	return filepath.Clean(p)
+}
+
+func defaultConfigText() string { return defaultConfigTextFor(runtime.GOOS) }
+
+func defaultConfigTextFor(goos string) string {
+	var quick string
+	if goos == "windows" {
+		quick = `[[menus]]
+name = "Quick launch"
+key = "F2"
+
+  [[menus.items]]
+  title = "Command prompt here"
+  hotkey = "c"
+  command = "cmd"
+  nowait = true
+
+  [[menus.items]]
+  title = "PowerShell here"
+  hotkey = "p"
+  command = "powershell"
+  nowait = true
+
+  [[menus.items]]
+  title = "Explorer here"
+  hotkey = "e"
+  command = "explorer ."
+  detach = true
+
+  [[menus.items]]
+  title = "Git status"
+  hotkey = "g"
+  command = "git status"
+
+  [[menus.items]]
+  title = "Tools..."
+  hotkey = "t"
+  submenu = "Tools"
+
+[[menus]]
+name = "Tools"
+key = "Shift+F2"
+
+  [[menus.items]]
+  title = "Directory size"
+  hotkey = "d"
+  command = "dir /s {file}"
+
+  [[menus.items]]
+  title = "Count lines of file"
+  hotkey = "l"
+  command = "find /c /v \"\" {file}"
+
+  [[menus.items]]
+  title = "Zip selected to other panel"
+  hotkey = "z"
+  command = "tar -a -c -f {other}\\archive.zip {files}"
+  confirm = true
+`
+	} else {
+		quick = `[[menus]]
+name = "Quick launch"
+key = "F2"
+
+  [[menus.items]]
+  title = "Shell here"
+  hotkey = "s"
+  command = "${SHELL:-sh}"
+  nowait = true
+
+  [[menus.items]]
+  title = "Git status"
+  hotkey = "g"
+  command = "git status"
+
+  [[menus.items]]
+  title = "Disk usage here"
+  hotkey = "d"
+  command = "du -sh -- * | sort -h"
+
+  [[menus.items]]
+  title = "Open in file browser"
+  hotkey = "o"
+  command = "xdg-open ."
+  detach = true
+
+  [[menus.items]]
+  title = "Tools..."
+  hotkey = "t"
+  submenu = "Tools"
+
+[[menus]]
+name = "Tools"
+key = "Shift+F2"
+
+  [[menus.items]]
+  title = "Count lines of file"
+  hotkey = "l"
+  command = "wc -l {file}"
+
+  [[menus.items]]
+  title = "Tar selected to other panel"
+  hotkey = "z"
+  command = "tar czvf {other}/archive.tgz {files}"
+  confirm = true
+
+  [[menus.items]]
+  title = "Make executable"
+  hotkey = "x"
+  command = "chmod +x {files}"
+  nowait = true
+`
+	}
+
+	return `# near - dual pane terminal file manager.
+# This file was generated on first start; every value shown is the default.
+#
+# Key names: "F5", "Shift+F6", "Ctrl+X", "Alt+X", "Esc", "Enter", "Tab",
+# "Shift+Tab", "Space", "Insert", "Delete", "Backspace", "Home", "End",
+# "PgUp", "PgDn", "Up", "Down", "Left", "Right", or a plain character
+# such as "+" or "a". Terminals report Ctrl+H as Backspace, Ctrl+I as Tab
+# and Ctrl+M as Enter, so those three cannot be bound separately.
+
+editor = ""          # external editor (Ctrl+F4): empty = $VISUAL, $EDITOR, then vi / notepad
+internal_editor = true   # F4 opens the built-in FAR-like editor; false = external editor
+editor_tab_size = 4
+shell = ""           # empty: $SHELL or sh (cmd on Windows)
+theme = "far"        # "far" (blue, FAR-like) or "plain" (terminal colours)
+show_hidden = true   # list dot files and files with the hidden attribute (Ctrl+F10 toggles)
+confirm_delete = true
+command_wait = true  # after a command from the command line, wait for Enter so its output stays readable
+date_format = "2006-01-02"         # Go time layout for the Date column
+time_format = "15:04"              # ... and the Time column
+notes_file = ".near-notes"         # per-directory hidden notes file (JSON)
+
+# Everything-like search: directories to index and what to skip. A plain
+# name skips every directory of that name; an entry with a path separator
+# skips that exact directory. The index is rebuilt in the background on
+# start (see search_index_on_start) and with Ctrl+R in the search dialog.
+search_roots = ["~"]
+search_exclude = [".git", "node_modules", "__pycache__", ".cache", "/proc", "/sys", "/dev", "/run"]
+search_max_results = 500
+search_index_on_start = true
+# Keep the index current by watching the roots for changes. Windows watches
+# whole trees with one handle per root; Linux and macOS need one watch per
+# directory, so the number is capped (raise fs.inotify.max_user_watches on
+# Linux to go higher). When the cap is hit, deeper changes are only picked up
+# by the next rebuild.
+search_watch = true
+search_watch_max_dirs = 100000
+
+# Actions and their keys. An action may have several keys. Remove or
+# change entries freely; Esc goes to the parent directory by default.
+#
+# The command line at the bottom always has the focus: printable characters
+# go into it, and while it is not empty Enter runs it, Esc clears it, and
+# Left/Right/Home/End/Backspace/Delete edit it. Characters bound to an
+# action (+ - * Space) only trigger the action while the command line is
+# empty. "cd <dir>" changes the active panel instead of running a shell.
+#
+# Alt+<character> starts a quick search in the active panel with that
+# character (keep Alt+letter combinations unbound for this to work).
+[keys]
+insert_name = ["Ctrl+Enter", "Ctrl+J"]
+insert_path = ["Alt+Enter"]
+history_prev = ["Ctrl+E"]
+history_next = ["Ctrl+X"]
+history = ["Alt+F8"]                   # FAR: command history
+folder_history = ["Alt+F12"]           # FAR: folders history
+file_history = ["Alt+F11"]             # FAR: view and edit history
+compare = ["Shift+F3"]                 # compare directories or files
+help = ["F1"]
+quit = ["F10", "Ctrl+Q"]
+switch_panel = ["Tab"]
+up = ["Up"]
+down = ["Down"]
+page_up = ["PgUp"]
+page_down = ["PgDn"]
+home = ["Home"]
+end = ["End"]
+enter = ["Enter"]
+up_dir = ["Esc", "Backspace"]
+select = ["Insert", "Space"]
+select_pattern = ["+"]
+unselect_pattern = ["-"]
+invert_selection = ["*"]
+select_all = ["Ctrl+A"]
+unselect_all = ["Ctrl+D"]
+new_tab = ["Ctrl+T"]
+close_tab = ["Ctrl+W"]
+next_tab = ["Ctrl+PgDn", "Alt+Right"]
+prev_tab = ["Ctrl+PgUp", "Alt+Left"]
+tab_1 = ["Alt+1"]
+tab_2 = ["Alt+2"]
+tab_3 = ["Alt+3"]
+tab_4 = ["Alt+4"]
+tab_5 = ["Alt+5"]
+tab_6 = ["Alt+6"]
+tab_7 = ["Alt+7"]
+tab_8 = ["Alt+8"]
+tab_9 = ["Alt+9"]
+view = ["F3"]
+edit = ["F4"]
+edit_new = ["Shift+F4"]                # FAR: edit a new file
+edit_external = ["Ctrl+F4"]            # open in the external editor
+copy_path = ["Ctrl+Alt+Insert"]        # copy the full path of the current entry to the clipboard
+copy = ["F5"]
+move = ["F6"]
+rename = ["Shift+F6"]
+mass_rename = ["Ctrl+F6", "Alt+F6"]
+mkdir = ["F7"]
+delete = ["F8", "Delete"]
+quick_launch = ["F2"]
+menus = ["F9"]
+notes = ["Ctrl+N"]
+search = ["Alt+F7", "Ctrl+F"]
+quick_search = ["Ctrl+S"]          # Alt+<character> also starts a quick search with that character
+sort = ["Ctrl+F12"]
+toggle_hidden = ["Ctrl+F10"]
+refresh = ["Ctrl+R"]
+swap_panels = ["Ctrl+U"]
+sync_other = ["Shift+F12"]
+locations = ["Alt+F1", "Alt+F2", "Ctrl+L"]
+goto_path = ["Ctrl+G"]
+run_command = []                       # the command line replaces this dialog; bind if wanted
+toggle_panels = ["Ctrl+O"]
+toggle_inactive_panel = ["Ctrl+P"]     # FAR: hide/show the inactive panel
+toggle_left_panel = ["Ctrl+F1"]
+toggle_right_panel = ["Ctrl+F2"]
+panels_shorter = ["Ctrl+Up"]           # FAR: the bottom edge of both panels moves up
+panels_taller = ["Ctrl+Down"]          # ... and down again
+panel_shorter = ["Ctrl+Shift+Up"]      # FAR: the same for the current panel only
+panel_taller = ["Ctrl+Shift+Down"]
+split_left = ["Ctrl+Left"]             # FAR: change the panels' width (command line empty)
+split_right = ["Ctrl+Right"]
+panels_default_width = []              # FAR: Ctrl+Numpad5, which terminals cannot report; bind as you like
+panels_default_height = []             # FAR: Ctrl+Alt+Numpad5
+
+# Bookmarks appear in the locations dialog (Alt+F1).
+[[bookmarks]]
+name = "Home"
+path = "~"
+
+# Custom menus. The first menu is the quick launch menu (F2); F9 lists all
+# menus. A menu with "key" is also opened directly by that key.
+#
+# Item fields:
+#   title    text shown in the menu
+#   hotkey   single character that activates the item
+#   command  shell command; placeholders (all quoted for the shell):
+#              {file}   current entry name       {path}   its full path
+#              {files}  selected names (or current)  {paths} their full paths
+#              {dir}    current directory          {other}  other panel's directory
+#              {name}   current name without extension  {ext} extension (no dot)
+#   submenu  name of another menu to open instead of running a command
+#   nowait   do not wait for a key press after the command finishes
+#   detach   start in the background without leaving the file manager (GUI apps)
+#   confirm  ask before running
+#   cwd      working directory (default: current directory)
+` + quick
+}
