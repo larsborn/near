@@ -5,15 +5,15 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
 
 ```
 ╔═ 1:src ═╤ 2:home ═════════════════════════════╗╔═ 1:build ═══════════════════════════════════╗
-║ ~/src                                          ║║ ~/build                                      ║
-║n            Name            │ Size  │   Date   │║n           Name           │ Size  │   Date   │║
-║..                           │     Up│          │║..                         │     Up│          │║
-║near                         │ Folder│2026-10-23│║out                        │ Folder│2026-10-23│║
-║notes.txt                   *│  1.2 K│2026-10-23│║near-linux-amd64           │  5.9 M│2026-10-23│║
-╟─────────────────────────────┴───────┴──────────╢╟───────────────────────────┴───────┴──────────╢
-║ notes.txt  1,234 bytes  2026-10-23 09:30       ║║                                              ║
-║ ✎ dual pane file manager, Go + tcell           ║║                                              ║
-╚════════ Bytes: 1.2 K, files: 1, folders: 1 ════╝╚═══════ Bytes: 5.9 M, files: 1, folders: 1 ═══╝
+║ ~/src                                         ║║ ~/build                                     ║
+║n            Name           │ Size  │   Date   ║║n           Name          │ Size  │   Date   ║
+║..                          │     Up│          ║║..                        │     Up│          ║
+║near                        │ Folder│2026-10-23║║out                       │ Folder│2026-10-23║
+║notes.txt                  *│  1.2 K│2026-10-23║║near-linux-amd64          │  5.9 M│2026-10-23║
+╟────────────────────────────┴───────┴──────────╢╟──────────────────────────┴───────┴──────────╢
+║ notes.txt  1,234 bytes  2026-10-23 09:30      ║║                                             ║
+║ ✎  dual pane file manager, Go + tcell         ║║                                             ║
+╚════════ Bytes: 1.2 K, files: 1, folders: 1 ═══╝╚══════ Bytes: 5.9 M, files: 1, folders: 1 ═══╝
 
 ~/src>git log --oneline near
  1Help  2Menu  3View  4Edit  5Copy  6Move  7MkDir 8Del   9Menus 10Quit
@@ -106,11 +106,11 @@ near -version
 
 Written on first start with every default and a comment for each setting:
 
-| Platform | Path |
-| --- | --- |
-| Linux | `~/.config/near/config.toml` |
-| macOS | `~/Library/Application Support/near/config.toml` |
-| Windows | `%APPDATA%\near\config.toml` |
+| Platform | Path                                             |
+| -------- | ------------------------------------------------ |
+| Linux    | `~/.config/near/config.toml`                     |
+| macOS    | `~/Library/Application Support/near/config.toml` |
+| Windows  | `%APPDATA%\near\config.toml`                     |
 
 The same directory holds `state.json` (session, histories, panel sizes) and
 `index.gob` (search cache). `near -defaults` prints the current defaults,
@@ -164,12 +164,12 @@ key = "F2"                 # optional direct key
 
 Placeholders in `command` and `cwd` are quoted for the shell:
 
-| Placeholder | Value |
-| --- | --- |
-| `{file}` / `{path}` | current entry name / full path |
+| Placeholder           | Value                                                        |
+| --------------------- | ------------------------------------------------------------ |
+| `{file}` / `{path}`   | current entry name / full path                               |
 | `{files}` / `{paths}` | selected names / full paths (current entry if none selected) |
-| `{dir}` / `{other}` | this panel's / the other panel's directory |
-| `{name}` / `{ext}` | current name without extension / extension without dot |
+| `{dir}` / `{other}`   | this panel's / the other panel's directory                   |
+| `{name}` / `{ext}`    | current name without extension / extension without dot       |
 
 Item flags: `nowait` (no "press Enter" pause), `detach` (background, for GUI
 apps), `confirm` (ask first), `cwd` (working directory). The same placeholders
@@ -189,11 +189,11 @@ search_watch_max_dirs = 100000 # cap for per-directory watches (Linux, macOS)
 The index maps each directory to its names, so a change is a small update
 rather than a rescan. Changes arrive through a watcher:
 
-| Platform | Mechanism | Scope |
-| --- | --- | --- |
-| Windows | `ReadDirectoryChangesW` with subtree watching | one handle per root, whole tree |
-| Linux | inotify via fsnotify | one watch per directory, capped |
-| macOS, BSD | kqueue via fsnotify | one watch per directory, capped (needs a high `ulimit -n`) |
+| Platform   | Mechanism                                     | Scope                                                      |
+| ---------- | --------------------------------------------- | ---------------------------------------------------------- |
+| Windows    | `ReadDirectoryChangesW` with subtree watching | one handle per root, whole tree                            |
+| Linux      | inotify via fsnotify                          | one watch per directory, capped                            |
+| macOS, BSD | kqueue via fsnotify                           | one watch per directory, capped (needs a high `ulimit -n`) |
 
 Creates, deletes and renames show up within about a third of a second. If the
 system reports lost events the index is rebuilt. On Linux, raise
