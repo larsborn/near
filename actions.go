@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -58,22 +59,43 @@ func (a *App) selectPattern(selectIt bool) {
 
 // ---------------------------------------------------------------- progress
 
-// progress draws a small box for a long-running operation and returns
-// false when the user pressed Esc meanwhile.
-func (a *App) progress(title, item string) bool {
+// progress draws the box for a long-running synchronous operation
+// (deleting, comparing) and returns false when the user pressed Esc
+// meanwhile. Copies and moves use the transfer queue instead.
+func (a *App) progress(title, item string, done, total int64) bool {
 	for a.screen.HasPendingEvent() {
 		if ev, ok := a.screen.PollEvent().(*tcell.EventKey); ok && ev.Key() == tcell.KeyEscape {
+			a.lastProgress = time.Time{}
 			return false
 		}
 	}
-	a.draw()
-	w := clampInt(a.w-10, 30, 80)
-	x, y := a.center(w, 5)
-	a.drawBox(x, y, w, 5, a.theme.Dialog, title)
-	a.print(x+2, y+1, w-4, a.theme.Dialog, fitRight(item, w-4))
-	a.print(x+2, y+3, w-4, a.theme.DialogHint, "Esc: cancel")
+	if item == a.lastProgressItem && time.Since(a.lastProgress) < 80*time.Millisecond {
+		return true
+	}
+	a.lastProgress, a.lastProgressItem = time.Now(), item
+	a.spinner++
+	a.drawAll() // base screen without presenting it; the box goes on top, then one Show
+	th := a.theme
+	w := clampInt(a.w-10, 40, 76)
+	h := 5
+	x, y := a.center(w, h)
+	spin := []string{"|", "/", "-", "\\"}[a.spinner%4]
+	a.drawBox(x, y, w, h, th.Dialog, title+" "+spin)
+	a.print(x+2, y+1, w-4, th.Dialog, fitRight(item, w-4))
+	a.print(x+2, y+3, w-4, th.DialogHint, "Esc: cancel")
 	a.screen.Show()
 	return true
+}
+
+func fmtDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	sec := int(d.Seconds()) % 60
+	if h > 0 {
+		return fmt.Sprintf("%d:%02d:%02d", h, m, sec)
+	}
+	return fmt.Sprintf("%d:%02d", m, sec)
 }
 
 // ---------------------------------------------------------------- copy / move
@@ -84,15 +106,7 @@ func (a *App) copyOrMove(move bool) {
 	if len(targets) == 0 {
 		return
 	}
-	verb := "Copy"
-	if move {
-		verb = "Move"
-	}
-	what := targets[0].Name
-	if len(targets) > 1 {
-		what = fmt.Sprintf("%d entries", len(targets))
-	}
-	a.input(verb+" "+what, verb+" to:", a.other().Path, func(dst string) {
+	a.copyMoveDialog(move, targets, a.other().Path, func(dst string, opts copyOptions) {
 		dst = strings.TrimSpace(dst)
 		if dst == "" {
 			return
@@ -101,11 +115,15 @@ func (a *App) copyOrMove(move bool) {
 			dst = filepath.Join(t.Path, dst)
 		}
 		dst = absPath(dst)
-		a.doCopyOrMove(t, targets, dst, move)
+		a.doCopyOrMove(t, targets, dst, move, opts)
 	})
 }
 
-func (a *App) doCopyOrMove(t *Tab, targets []Entry, dst string, move bool) {
+// doCopyOrMove copies or moves targets to dst. opts.Policy is one of
+// existingPolicies: "Ask" confirms when destinations exist, "Overwrite" and
+// "Skip" decide for all, "Only newer" overwrites when the source is newer.
+func (a *App) doCopyOrMove(tab *Tab, targets []Entry, dst string, move bool, opts copyOptions) {
+	policy := opts.Policy
 	dstIsDir := isDir(dst)
 	if len(targets) > 1 && !dstIsDir {
 		a.confirm("Destination does not exist", []string{"Create directory " + fitRight(dst, 50) + "?"}, []string{"Create", "Cancel"}, func(r int) {
@@ -116,7 +134,7 @@ func (a *App) doCopyOrMove(t *Tab, targets []Entry, dst string, move bool) {
 				a.setErr(err)
 				return
 			}
-			a.doCopyOrMove(t, targets, dst, move)
+			a.doCopyOrMove(tab, targets, dst, move, opts)
 		})
 		return
 	}
@@ -125,7 +143,7 @@ func (a *App) doCopyOrMove(t *Tab, targets []Entry, dst string, move bool) {
 	var jobs []job
 	conflicts := 0
 	for _, e := range targets {
-		src := filepath.Join(t.Path, e.Name)
+		src := filepath.Join(tab.Path, e.Name)
 		d := dst
 		if dstIsDir {
 			d = filepath.Join(dst, e.Name)
@@ -135,57 +153,35 @@ func (a *App) doCopyOrMove(t *Tab, targets []Entry, dst string, move bool) {
 		}
 		jobs = append(jobs, job{src, d, e.Name})
 	}
-	run := func(overwrite bool) {
-		verb := "Copying"
-		if move {
-			verb = "Moving"
-		}
-		var err error
-		done := 0
+	run := func(overwriteAll bool) {
+		t := &transfer{move: move, flags: copyFlags{Overwrite: overwriteAll, Deref: opts.Deref, KeepTimes: opts.KeepTimes},
+			policy: policy, srcDir: tab.Path, notes: a.cfg.NotesFile}
 		for _, j := range jobs {
-			if sameFile(j.src, j.dst) && !move {
-				err = fmt.Errorf("%s: source and destination are the same", j.name)
-				break
-			}
-			pf := func(item string) bool { return a.progress(verb, item) }
-			if move {
-				err = moveTree(j.src, j.dst, overwrite, pf)
-			} else {
-				err = copyTree(j.src, j.dst, overwrite, pf)
-			}
-			if err != nil {
-				break
-			}
-			dstDir, dstName := filepath.Split(j.dst)
-			dstDir = filepath.Clean(dstDir)
-			if move {
-				moveNote(t.Path, j.name, dstDir, dstName, a.cfg.NotesFile)
-			} else {
-				copyNote(t.Path, j.name, dstDir, dstName, a.cfg.NotesFile)
-			}
-			done++
+			t.jobs = append(t.jobs, transferJob{src: j.src, dst: j.dst, name: j.name})
 		}
-		t.Selected = map[string]bool{}
-		a.reloadAll()
-		if err != nil {
-			a.setErr(fmt.Errorf("%s: %v (%d done)", verb, err, done))
-		} else {
-			a.setStatus(fmt.Sprintf("%s: %d entries", verb, done))
+		tab.Selected = map[string]bool{}
+		a.startTransfer(t, opts.Background)
+	}
+	switch policy {
+	case "Overwrite":
+		run(true)
+	case "Skip", "Only newer":
+		run(false)
+	default: // Ask
+		if conflicts > 0 {
+			a.confirm("Destination exists", []string{fmt.Sprintf("%d entries already exist in the destination.", conflicts)},
+				[]string{"Overwrite", "Skip existing", "Cancel"}, func(r int) {
+					switch r {
+					case 0:
+						run(true)
+					case 1:
+						run(false)
+					}
+				})
+			return
 		}
+		run(false)
 	}
-	if conflicts > 0 {
-		a.confirm("Destination exists", []string{fmt.Sprintf("%d entries already exist in the destination.", conflicts)},
-			[]string{"Overwrite", "Skip existing", "Cancel"}, func(r int) {
-				switch r {
-				case 0:
-					run(true)
-				case 1:
-					run(false)
-				}
-			})
-		return
-	}
-	run(false)
 }
 
 // ---------------------------------------------------------------- rename / mkdir / delete
@@ -249,7 +245,7 @@ func (a *App) deleteSelected() {
 		done := 0
 		for _, e := range targets {
 			full := filepath.Join(t.Path, e.Name)
-			if err = deleteTree(full, func(item string) bool { return a.progress("Deleting", item) }); err != nil {
+			if err = deleteTree(full, func(item string, _, _ int64) bool { return a.progress("Deleting", item, -1, -1) }); err != nil {
 				break
 			}
 			deleteNote(t.Path, e.Name, a.cfg.NotesFile)

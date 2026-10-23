@@ -24,7 +24,15 @@ func (a *App) listRows(i int) int {
 	return rows
 }
 
+// draw renders everything and presents it.
 func (a *App) draw() {
+	a.drawAll()
+	a.screen.Show()
+}
+
+// drawAll renders everything without presenting it, so that an overlay can
+// be added before the screen is updated in one step.
+func (a *App) drawAll() {
 	a.w, a.h = a.screen.Size()
 	a.screen.Clear()
 	a.screen.HideCursor()
@@ -33,16 +41,16 @@ func (a *App) draw() {
 	// The panel area is blank where no panel is drawn: hidden panels, and
 	// the rows below a panel made shorter with Ctrl+Down.
 	a.fill(0, 0, a.w, ph, a.theme.Cmd)
+	consoleOnly := a.hideAll && a.status == ""
 	if a.hideAll {
-		a.drawConsole(ph)
-		if a.status == "" {
-			switch {
-			case a.running != nil:
-				a.setStatus("Running… Ctrl+C stops it. Ctrl+O shows the panels")
-			default:
-				a.setStatus("Console view: type the next command, Ctrl+O shows the panels")
-			}
+		// Without a message to show, the console also takes the status row so
+		// that the prompt sits directly under the output, like a shell.
+		rows := ph
+		if consoleOnly {
+			rows++
+			a.fill(0, ph, a.w, 1, a.theme.Cmd) // the status row keeps the console colours
 		}
+		a.drawConsole(0, rows, true)
 	} else {
 		if !a.hidden[0] {
 			a.drawPanel(0, 0, 0, pw, a.panelHeight(0))
@@ -50,14 +58,19 @@ func (a *App) draw() {
 		if !a.hidden[1] {
 			a.drawPanel(1, pw, 0, a.w-pw, a.panelHeight(1))
 		}
+		// The tail of the last command's output stays visible under the panels.
+		if band := a.consoleBand(); band > 0 {
+			a.drawConsole(a.panelArea(), band, false)
+		}
 	}
-	a.drawStatus()
+	if !consoleOnly {
+		a.drawStatus()
+	}
 	a.drawCmdLine()
 	a.drawKeyBar()
 	for _, d := range a.dialogs {
 		d.Draw(a)
 	}
-	a.screen.Show()
 }
 
 func (a *App) drawPanel(idx, x, y, w, h int) {
@@ -329,6 +342,9 @@ func (a *App) drawStatus() {
 	st := th.Status
 	if a.statusErr {
 		st = th.StatusErr
+	}
+	if a.status == "" {
+		a.status = a.transferStatus()
 	}
 	right := ""
 	switch {

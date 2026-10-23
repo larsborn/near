@@ -78,7 +78,7 @@ func (a *App) compareDirs(content bool) {
 			}
 		case content:
 			compared++
-			if !a.progress("Comparing contents", name) {
+			if !a.progress("Comparing contents", name, -1, -1) {
 				a.setStatus("Compare cancelled")
 				return
 			}

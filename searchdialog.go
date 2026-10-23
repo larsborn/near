@@ -86,7 +86,7 @@ func (d *SearchDialog) HandleKey(a *App, ev *tcell.EventKey) {
 	case "End":
 		d.cursor = maxInt(0, len(d.results)-1)
 	default:
-		if d.edit.HandleKey(ev) {
+		if d.edit.HandleKey(ev, a) {
 			d.dirty = true
 		}
 	}
@@ -114,8 +114,8 @@ func (d *SearchDialog) Draw(a *App) {
 	a.print(x+2, y+1, 8, th.Dialog, "Find:")
 	d.edit.Draw(a, x+8, y+1, w-10, th.InputFocus, true)
 	a.hline(x+1, y+2, w-2, th.Dialog, '─')
-	a.screen.SetContent(x, y+2, '├', nil, th.Dialog)
-	a.screen.SetContent(x+w-1, y+2, '┤', nil, th.Dialog)
+	a.screen.SetContent(x, y+2, '╟', nil, th.Dialog)
+	a.screen.SetContent(x+w-1, y+2, '╢', nil, th.Dialog)
 	if d.cursor < d.top {
 		d.top = d.cursor
 	}
@@ -147,8 +147,8 @@ func (d *SearchDialog) Draw(a *App) {
 		a.print(cx, ry, iw-(cx-x-2), st.Bold(idx == d.cursor), name)
 	}
 	a.hline(x+1, y+h-2, w-2, th.Dialog, '─')
-	a.screen.SetContent(x, y+h-2, '├', nil, th.Dialog)
-	a.screen.SetContent(x+w-1, y+h-2, '┤', nil, th.Dialog)
+	a.screen.SetContent(x, y+h-2, '╟', nil, th.Dialog)
+	a.screen.SetContent(x+w-1, y+h-2, '╢', nil, th.Dialog)
 	var status string
 	switch {
 	case a.index.Building():

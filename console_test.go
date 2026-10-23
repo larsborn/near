@@ -66,18 +66,31 @@ func TestConsoleRunAndStay(t *testing.T) {
 	if !strings.Contains(out, "echo hello console") || !strings.Contains(out, "\nhello console") {
 		t.Fatalf("console = %q", out)
 	}
-	if !a.hideAll || a.cmd.String() != "" {
-		t.Fatal("after the command the console must stay and the command line be empty")
+	// The panels were visible before, so they come back (FAR behaviour),
+	// with the tail of the output in a band under them.
+	txt0 := screenText(a)
+	if a.hideAll || a.cmd.String() != "" || !strings.Contains(txt0, "Name") {
+		t.Fatal("panels should be back after the command")
 	}
-	// The output is on screen, above the command line, and no prompt to press Enter.
+	if !strings.Contains(txt0, "hello console") {
+		t.Fatalf("last output should stay visible under the panels:\n%s", txt0)
+	}
+	if band := a.consoleBand(); band != a.cfg.ConsoleRows || a.panelHeight(0) != a.h-bottomRows-band {
+		t.Fatalf("band=%d panel height=%d", band, a.panelHeight(0))
+	}
+	// ... and the output waits behind Ctrl+O, with no "press Enter" pause anywhere.
+	key(a, "Ctrl+O")
 	txt := screenText(a)
-	if !strings.Contains(txt, "hello console") || strings.Contains(txt, "Press Enter") {
+	if !a.hideAll || !strings.Contains(txt, "hello console") || strings.Contains(txt, "Press Enter") {
 		t.Fatalf("screen:\n%s", txt)
 	}
-	// A failing command reports its exit code; cd is echoed into the console.
+	// Started from the console view, a command leaves the console in place.
 	typeText(a, "exit 3")
 	key(a, "Enter")
 	waitCommand(t, a)
+	if !a.hideAll {
+		t.Fatal("console view should stay when it was active before the command")
+	}
 	if !strings.Contains(a.console.Text(), "[exit 3") {
 		t.Fatalf("exit status missing: %q", a.console.Text())
 	}
@@ -107,6 +120,15 @@ func TestConsoleCtrlC(t *testing.T) {
 	key(a, "Enter")
 	if a.running == nil {
 		t.Fatal("command should be running")
+	}
+	// No prompt and no input while the command runs.
+	typeText(a, "ignored")
+	key(a, "Enter")
+	promptRow := strings.Split(screenText(a), "\n")[a.h-2]
+	if a.cmd.String() != "" || strings.TrimSpace(promptRow) != "" {
+		key(a, "Ctrl+C")
+		waitCommand(t, a)
+		t.Fatalf("input must be ignored and the prompt hidden while running: cmd=%q row=%q", a.cmd.String(), promptRow)
 	}
 	start := time.Now()
 	key(a, "Ctrl+C")

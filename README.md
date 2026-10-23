@@ -33,10 +33,14 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   `Alt+Enter` its full path. `cd <dir>` moves the panel instead of spawning a
   shell. `Ctrl+E`/`Ctrl+X` step through the history.
 - **Console view.** A command run from the command line has its output
-  captured, coloured, into a console that replaces the panels and stays
-  there, like FAR with the panels switched off: you keep typing commands at
-  the bottom, the output accumulates above, `PgUp`/`PgDn` scroll it, `Ctrl+C`
-  stops a running command and `Ctrl+O` switches between console and panels.
+  captured, coloured, into a console shown while it runs; the prompt returns
+  when it has terminated. As in FAR, the panels come back afterwards if they
+  were visible, with the tail of the output staying visible in a band under
+  them (`console_rows`, default 6), and with the panels switched off (`Ctrl+O`) you stay in the
+  console like in a shell: commands at the bottom, output accumulating above,
+  `Up`/`Down` recalling the history, `PgUp`/`PgDn` scrolling, `Ctrl+C`
+  stopping a running command, `Ctrl+O` bringing the panels back. Nothing
+  reaches the hidden panels.
   Programs that need a real terminal (`interactive_commands` in the config:
   editors, pagers, shells, ssh) run outside instead, as does anything sent
   with `Shift+Enter`.
@@ -83,6 +87,26 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   directory when `..` is selected, to the clipboard via the terminal (OSC 52)
   and a native helper where available (`clip.exe`, `pbcopy`, `wl-copy`,
   `xclip`, `xsel`).
+- **Copy and move** (`F5`, `F6`) use FAR's dialog: "Rename or move <name>
+  to", the destination field, an "Already existing files" choice (Ask,
+  Overwrite, Skip, Only newer), "Preserve timestamps" and "Copy contents of
+  symbolic links" checkboxes, yellow hotkey letters and the default button in
+  braces. The progress box is FAR's too: source, "to", destination, a bar
+  with the percentage, a Total section with files and bytes, and a line with
+  elapsed time, remaining time and speed. Files are copied in 4 MB blocks, so
+  `Esc` cancels at any time, even in the middle of a large file on a slow
+  share, and removes the partial target. `Shift+Up`/`Shift+Down` toggle the
+  selection and move, as in FAR.
+- **Background transfers.** The dialog's `[ Background ]` button (hotkey
+  `B`) queues the copy or move without a progress box, and `B` in a running
+  progress box sends that transfer to the background too. All transfers go
+  through one queue and run strictly one after another, never in parallel.
+  While a transfer waits its turn, its box lists the queue: the transfers
+  already finished with their outcome, the running one with its percentage,
+  the queued ones and its own place. The status line shows what the
+  background is doing; `Ctrl+B` lists all transfers, finished ones included
+  with done / cancelled / failed, `Enter` shows one's box, `Delete` cancels
+  a running or queued one. Quitting with transfers running asks first.
 - Also: selection by glob or regex (`+` `-` `*`), sort menu (`Ctrl+F12`),
   hidden files (`Ctrl+F10`), locations dialog with drives, mounts, bookmarks
   and open tabs (`Alt+F1`), go to path (`Ctrl+G`), viewer with hex mode (`F3`),

@@ -26,6 +26,9 @@ func (a *App) drawCmdLine() {
 	th := a.theme
 	y := a.h - 2
 	a.fill(0, y, a.w, 1, th.Cmd)
+	if a.running != nil {
+		return // no prompt until the command has terminated
+	}
 	pr := a.prompt()
 	pw := a.print(0, y, a.w-4, th.CmdPrompt, pr)
 	focused := len(a.dialogs) == 0 && !a.qsActive

@@ -45,6 +45,7 @@ type Config struct {
 	CommandWait         bool                `toml:"command_wait"`
 	InteractiveCommands []string            `toml:"interactive_commands"`
 	ConsoleLines        int                 `toml:"console_lines"`
+	ConsoleRows         int                 `toml:"console_rows"`
 	DateFormat          string              `toml:"date_format"`
 	TimeFormat          string              `toml:"time_format"`
 	InternalEditor      bool                `toml:"internal_editor"`
@@ -270,6 +271,7 @@ confirm_delete = true
 interactive_commands = ["vi", "vim", "nvim", "nano", "emacs", "less", "more", "man", "ssh", "telnet",
   "htop", "top", "python", "python3", "node", "irb", "sh", "bash", "zsh", "fish", "cmd", "powershell", "pwsh"]
 console_lines = 5000     # output lines kept in the console view
+console_rows = 6         # rows under the panels showing the tail of the last output (0 = none)
 command_wait = true      # after a command run outside (menu item, Shift+Enter), wait for Enter before returning
 date_format = "2006-01-02"         # Go time layout for the Date column
 time_format = "15:04"              # ... and the Time column
@@ -311,6 +313,7 @@ history = ["Alt+F8"]                   # FAR: command history
 folder_history = ["Alt+F12"]           # FAR: folders history
 file_history = ["Alt+F11"]             # FAR: view and edit history
 compare = ["Shift+F3"]                 # compare directories or files
+transfers = ["Ctrl+B"]                 # list background transfers (cancel with Delete)
 help = ["F1"]
 quit = ["F10", "Ctrl+Q"]
 switch_panel = ["Tab"]
@@ -323,6 +326,8 @@ end = ["End"]
 enter = ["Enter"]
 up_dir = ["Esc", "Backspace"]
 select = ["Insert", "Space"]
+select_up = ["Shift+Up"]               # FAR: toggle selection and move up
+select_down = ["Shift+Down"]           # FAR: toggle selection and move down
 select_pattern = ["+"]
 unselect_pattern = ["-"]
 invert_selection = ["*"]

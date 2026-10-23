@@ -242,6 +242,13 @@ func extendedColor(ps []string) (tcell.Color, int) {
 	return tcell.ColorDefault, 0
 }
 
+// HasContent reports whether any output or prompt has been recorded.
+func (c *Console) HasContent() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.lines) > 0 || len(c.partial) > 0
+}
+
 // Text returns the console contents as plain text (used by tests).
 func (c *Console) Text() string {
 	c.mu.Lock()
@@ -341,11 +348,13 @@ func (c *Console) scrollBy(n, w, rows int) {
 
 // ---------------------------------------------------------------- running
 
-// drawConsole paints the console into the panel area.
-func (a *App) drawConsole(ph int) {
+// drawConsole paints the newest console rows into the screen rows
+// [top, top+height), bottom-aligned. The scroll indicator is only shown in
+// the full console view.
+func (a *App) drawConsole(top, height int, full bool) {
 	th := a.theme
-	rows, more := a.console.visualRows(a.w, ph)
-	y := ph - len(rows)
+	rows, more := a.console.visualRows(a.w, height)
+	y := top + height - len(rows)
 	for _, row := range rows {
 		x := 0
 		for _, s := range row {
@@ -353,12 +362,12 @@ func (a *App) drawConsole(ph int) {
 		}
 		y++
 	}
-	if more || a.console.scroll > 0 {
+	if full && (more || a.console.scroll > 0) {
 		tag := " PgUp/PgDn scroll "
 		if a.console.scroll > 0 {
 			tag = fmt.Sprintf(" ↑%d  PgDn/End back ", a.console.scroll)
 		}
-		a.print(a.w-runewidth.StringWidth(tag), 0, runewidth.StringWidth(tag), th.KeyLabel, tag)
+		a.print(a.w-runewidth.StringWidth(tag), top, runewidth.StringWidth(tag), th.KeyLabel, tag)
 	}
 }
 
@@ -410,6 +419,7 @@ func (a *App) runInConsole(cmdline, cwd string) {
 	pw.Close()
 	a.running = cmd
 	a.runStart = time.Now()
+	a.restorePanels = !a.hideAll // FAR: panels come back after the command if they were visible
 	a.hideAll = true
 	screen := a.screen
 	con := a.console
@@ -476,6 +486,10 @@ func (a *App) commandDone(err error) {
 		a.console.Println(fmt.Sprintf("[exit %d after %s]", e.ExitCode(), elapsed), a.theme.StatusErr)
 	default:
 		a.console.Println("["+err.Error()+"]", a.theme.StatusErr)
+	}
+	if a.restorePanels {
+		a.hideAll = false
+		a.restorePanels = false
 	}
 	a.reloadAll()
 }

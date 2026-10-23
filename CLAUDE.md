@@ -8,6 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `github.com/gdamore/tcell/v2`. Single `package main`, no subpackages. It targets Linux first
 but builds and is developed on Windows.
 
+## Git workflow
+
+**Always commit and push when a piece of work is done** — do not leave changes sitting in the
+working tree. Run `gofmt -l .`, `go vet ./...` and `go test ./...` first, commit with a message
+that says what changed for the user, then `git push`. Releases are separate: they
+are cut only when asked, by tagging `vX.Y.Z` and pushing the tag (see below).
+
 ## Commands
 
 ```sh
@@ -70,8 +77,14 @@ status, command line, key bar), hidden/resized panels (`hidden`, `hideAll`, `hei
 then the dialog stack. The FAR-like column layout (centred titles, `│` separators, sort letter,
 `Up`/`Folder`, centred footer) is matched by `TestPanelLooksLikeFar`.
 
-**Long operations** run synchronously inside the event loop and call `a.progress(title, item)`,
-which redraws and returns false if Esc is queued (copy/move/delete, content compare).
+**Copies and moves** (`transfers.go`) are `transfer`s on a single `transferQueue` whose one
+worker goroutine runs them strictly in order; progress lives in the transfer under its mutex,
+the worker posts `EventTransfer`/`EventTransferDone`, and `TransferDialog` is just a modal view
+of that state (Esc cancels via an atomic flag, B pops the dialog and the transfer continues in
+the background). The copy/move dialog (`copydialog.go`) returns `copyOptions` incl. `Background`.
+Files are copied in `copyChunk` blocks so cancellation is checked mid-file.
+**Other long operations** (delete, content compare) still run synchronously in the event loop
+and call `a.progress(title, item, -1, -1)`, which redraws and returns false if Esc is queued.
 
 **Shell, console and editor** (`commands.go`, `console.go`): commands typed at the command
 line go through `runCommandLine` → `runInConsole`: started with stdout/stderr on a pipe, no

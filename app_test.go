@@ -420,6 +420,7 @@ func TestCopyMove(t *testing.T) {
 	key(a, "Insert")
 	key(a, "F5")
 	key(a, "Enter")
+	waitTransfers(t, a)
 	if _, err := os.Stat(filepath.Join(other, "gamma", "inner", "deep.md")); err != nil {
 		t.Fatal("copy of tree failed:", err)
 	}
@@ -429,6 +430,7 @@ func TestCopyMove(t *testing.T) {
 	a.tab().SetCursorOn("beta")
 	key(a, "F6")
 	key(a, "Enter")
+	waitTransfers(t, a)
 	if isDir(filepath.Join(data, "beta")) || !isDir(filepath.Join(other, "beta")) {
 		t.Fatal("move failed")
 	}

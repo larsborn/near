@@ -22,34 +22,40 @@ func (p *Panel) Tab() *Tab { return p.Tabs[p.Active] }
 
 // App is the whole file manager.
 type App struct {
-	screen      tcell.Screen
-	cfg         *Config
-	keymap      map[string]string
-	theme       *Theme
-	panels      [2]*Panel
-	active      int
-	dialogs     []Dialog
-	status      string
-	statusErr   bool
-	index       *Index
-	quit        bool
-	qsActive    bool
-	qsText      []rune
-	w, h        int
-	showHidden  bool
-	cmd         *LineEdit // the command line at the bottom
-	history     []string  // command history, oldest first
-	histPos     int
-	dirHistory  []string // directories visited, oldest first
-	fileHistory []string // files viewed, edited or opened, oldest first
-	hidden      [2]bool  // individual panels hidden (Ctrl+F1 / Ctrl+P)
-	hideAll     bool     // both panels hidden (Ctrl+O)
-	heights     [2]int   // rows taken off a panel's height (Ctrl+Up/Down), 0 = full
-	split       int      // shift of the divider from the middle (Ctrl+Left/Right)
-	clipboard   string   // last text copied inside near
-	console     *Console // output of commands run from the command line
-	running     *exec.Cmd
-	runStart    time.Time
+	screen        tcell.Screen
+	cfg           *Config
+	keymap        map[string]string
+	theme         *Theme
+	panels        [2]*Panel
+	active        int
+	dialogs       []Dialog
+	status        string
+	statusErr     bool
+	index         *Index
+	quit          bool
+	qsActive      bool
+	qsText        []rune
+	w, h          int
+	showHidden    bool
+	cmd           *LineEdit // the command line at the bottom
+	history       []string  // command history, oldest first
+	histPos       int
+	dirHistory    []string // directories visited, oldest first
+	fileHistory   []string // files viewed, edited or opened, oldest first
+	hidden        [2]bool  // individual panels hidden (Ctrl+F1 / Ctrl+P)
+	hideAll       bool     // both panels hidden (Ctrl+O)
+	heights       [2]int   // rows taken off a panel's height (Ctrl+Up/Down), 0 = full
+	split         int      // shift of the divider from the middle (Ctrl+Left/Right)
+	clipboard     string   // last text copied inside near
+	console       *Console // output of commands run from the command line
+	running       *exec.Cmd
+	runStart      time.Time
+	restorePanels bool // panels were visible before the command: show them again when it ends
+
+	lastProgress     time.Time // last progress box redraw
+	lastProgressItem string
+	spinner          int
+	transfers        *transferQueue // copies and moves, run one after another
 }
 
 // panelVisible reports whether panel i is drawn.
@@ -58,9 +64,21 @@ func (a *App) panelVisible(i int) bool { return !a.hideAll && !a.hidden[i] }
 // minPanelHeight is the frame plus one entry row.
 const minPanelHeight = panelChrome + 1
 
+// consoleBand is the number of rows under the panels that show the tail of
+// the console once a command has produced output.
+func (a *App) consoleBand() int {
+	if a.cfg.ConsoleRows <= 0 || !a.console.HasContent() {
+		return 0
+	}
+	return clampInt(a.cfg.ConsoleRows, 0, maxInt(0, a.h-bottomRows-minPanelHeight))
+}
+
+// panelArea is the height available to the panels.
+func (a *App) panelArea() int { return a.h - bottomRows - a.consoleBand() }
+
 // panelHeight returns the drawn height of panel i.
 func (a *App) panelHeight(i int) int {
-	full := a.h - bottomRows
+	full := a.panelArea()
 	return clampInt(full-a.heights[i], minPanelHeight, maxInt(full, minPanelHeight))
 }
 
@@ -76,7 +94,7 @@ func (a *App) panelSplit() int {
 // resizePanels changes the height of both panels (which < 0) or of the
 // active one by delta rows; a positive delta makes the panel taller.
 func (a *App) resizePanels(which, delta int) {
-	full := a.h - bottomRows
+	full := a.panelArea()
 	for i := range a.heights {
 		if which >= 0 && i != which {
 			continue
@@ -91,6 +109,7 @@ func newApp(cfg *Config, s tcell.Screen) *App {
 	a.keymap = buildKeymap(cfg)
 	a.index = newIndex()
 	a.console = newConsole(a.theme.Cmd, cfg.ConsoleLines)
+	a.transfers = newTransferQueue(s)
 	for i := range a.panels {
 		a.panels[i] = &Panel{}
 	}
@@ -238,6 +257,10 @@ func (a *App) handleEvent(ev tcell.Event) {
 		// new output arrived; the redraw shows it
 	case *EventCommandDone:
 		a.commandDone(ev.err)
+	case *EventTransfer:
+		// progress changed; the redraw shows it
+	case *EventTransferDone:
+		a.transferDone(ev.t)
 	}
 }
 
@@ -251,15 +274,40 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 		return
 	}
 	name := keyName(ev)
-	// A running console command owns Ctrl+C.
-	if a.running != nil && name == "Ctrl+C" {
-		a.stopCommand()
+	// While a console command runs there is no prompt, like in a shell:
+	// only stopping it, scrolling, peeking at the panels and quitting work.
+	if a.running != nil {
+		switch {
+		case name == "Ctrl+C":
+			a.stopCommand()
+		case a.keymap[name] == "toggle_panels" || a.keymap[name] == "quit":
+			a.restorePanels = false // the user took over; leave the view as they set it
+			a.doAction(a.keymap[name])
+		case a.hideAll && (name == "PgUp" || name == "PgDn" || name == "Home" || name == "End"):
+			rows := a.h - bottomRows + 1
+			delta := map[string]int{"PgUp": rows - 1, "PgDn": -(rows - 1), "Home": 1 << 30, "End": -(1 << 30)}[name]
+			a.console.scrollBy(delta, a.w, rows)
+		}
 		return
 	}
-	// With the panels hidden the paging keys scroll the console.
-	if a.hideAll && len(a.cmd.Text) == 0 {
-		rows := a.h - bottomRows
+	// In the console view the keys behave like in a shell: nothing reaches
+	// the invisible panels, Up/Down walk the history, paging keys scroll.
+	if a.hideAll {
+		rows := a.h - bottomRows + 1 // the console also uses the (cleared) status row
 		switch name {
+		case "Tab", "Shift+Tab", "Shift+Up", "Shift+Down":
+			return
+		case "Up":
+			a.historyStep(-1)
+			return
+		case "Down":
+			a.historyStep(1)
+			return
+		case "Enter":
+			if len(a.cmd.Text) == 0 {
+				a.console.Println(a.prompt(), a.theme.CmdPrompt)
+				return
+			}
 		case "PgUp":
 			a.console.scrollBy(rows-1, a.w, rows)
 			return
@@ -267,11 +315,15 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 			a.console.scrollBy(-(rows - 1), a.w, rows)
 			return
 		case "Home":
-			a.console.scrollBy(1<<30, a.w, rows)
-			return
+			if len(a.cmd.Text) == 0 {
+				a.console.scrollBy(1<<30, a.w, rows)
+				return
+			}
 		case "End":
-			a.console.scrollBy(-(1 << 30), a.w, rows)
-			return
+			if len(a.cmd.Text) == 0 {
+				a.console.scrollBy(-(1 << 30), a.w, rows)
+				return
+			}
 		}
 	}
 	action, bound := a.keymap[name]
@@ -302,13 +354,14 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 			a.histPos = len(a.history)
 			return
 		case "Left", "Right", "Home", "End", "Ctrl+Left", "Ctrl+Right",
-			"Backspace", "Delete", "Ctrl+K", "Alt+Backspace", "Ctrl+Backspace":
-			a.cmd.HandleKey(ev)
+			"Shift+Left", "Shift+Right", "Shift+Home", "Shift+End", "Ctrl+Shift+Left", "Ctrl+Shift+Right",
+			"Backspace", "Delete", "Ctrl+K", "Alt+Backspace", "Ctrl+Backspace", "Ctrl+C", "Ctrl+V", "Ctrl+Insert":
+			a.cmd.HandleKey(ev, a)
 			return
 		}
 	}
 	if plainRune && (typing || !bound) {
-		a.cmd.HandleKey(ev)
+		a.cmd.HandleKey(ev, a)
 		a.histPos = len(a.history)
 		return
 	}
@@ -500,10 +553,23 @@ func (a *App) doAction(action string) {
 	t := a.tab()
 	switch action {
 	case "quit":
+		if a.transfers.active() {
+			a.confirm("Transfers are running", []string{"Quit anyway? Running transfers are cancelled."}, []string{"Quit", "Cancel"}, func(r int) {
+				if r == 0 {
+					for _, t := range a.transfers.pending() {
+						a.transfers.remove(t)
+					}
+					a.quit = true
+				}
+			})
+			return
+		}
 		if a.running != nil {
 			a.stopCommand()
 		}
 		a.quit = true
+	case "transfers":
+		a.showTransfers()
 	case "help":
 		a.showHelp()
 	case "switch_panel":
@@ -556,6 +622,12 @@ func (a *App) doAction(action string) {
 	case "select":
 		t.ToggleSelect()
 		t.MoveCursor(1)
+	case "select_down":
+		t.ToggleSelect()
+		t.MoveCursor(1)
+	case "select_up":
+		t.ToggleSelect()
+		t.MoveCursor(-1)
 	case "select_pattern":
 		a.selectPattern(true)
 	case "unselect_pattern":

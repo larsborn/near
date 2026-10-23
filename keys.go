@@ -171,6 +171,8 @@ var actionHelp = []struct{ Action, Help string }{
 	{"enter", "Enter directory / open file"},
 	{"up_dir", "Parent directory"},
 	{"select", "Toggle selection of current entry"},
+	{"select_down", "Toggle selection and move down"},
+	{"select_up", "Toggle selection and move up"},
 	{"select_pattern", "Select by pattern"},
 	{"unselect_pattern", "Unselect by pattern"},
 	{"invert_selection", "Invert selection"},
@@ -225,4 +227,5 @@ var actionHelp = []struct{ Action, Help string }{
 	{"folder_history", "Folders history (Enter goes, Ctrl+T new tab, Delete removes)"},
 	{"file_history", "View / edit history (Enter views, F4 edits, Ctrl+Enter goes to file)"},
 	{"compare", "Compare directories (mark differences) or files side by side"},
+	{"transfers", "Background transfers (Enter shows progress, Delete cancels)"},
 }

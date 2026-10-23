@@ -288,7 +288,7 @@ func (d *MassRenameDialog) HandleKey(a *App, ev *tcell.EventKey) {
 			d.recompute()
 		}
 	default:
-		if d.field().HandleKey(ev) {
+		if d.field().HandleKey(ev, a) {
 			d.recompute()
 		}
 	}
@@ -344,8 +344,8 @@ func (d *MassRenameDialog) Draw(a *App) {
 		a.print(fx+32, y+4, w-(fx+32-x)-2, th.DialogHint, fitLeft(hint, w-(fx+32-x)-2))
 	}
 	a.hline(x+1, y+5, w-2, th.Dialog, '─')
-	a.screen.SetContent(x, y+5, '├', nil, th.Dialog)
-	a.screen.SetContent(x+w-1, y+5, '┤', nil, th.Dialog)
+	a.screen.SetContent(x, y+5, '╟', nil, th.Dialog)
+	a.screen.SetContent(x+w-1, y+5, '╢', nil, th.Dialog)
 
 	// preview
 	half := (w - 8) / 2
@@ -376,8 +376,8 @@ func (d *MassRenameDialog) Draw(a *App) {
 		a.print(x+5+half, ry, half, nst, fitLeft(right, half))
 	}
 	a.hline(x+1, y+h-3, w-2, th.Dialog, '─')
-	a.screen.SetContent(x, y+h-3, '├', nil, th.Dialog)
-	a.screen.SetContent(x+w-1, y+h-3, '┤', nil, th.Dialog)
+	a.screen.SetContent(x, y+h-3, '╟', nil, th.Dialog)
+	a.screen.SetContent(x+w-1, y+h-3, '╢', nil, th.Dialog)
 	status := fmt.Sprintf("%d entries", len(d.pairs))
 	if d.errs > 0 {
 		status = fmt.Sprintf("%d conflicts", d.errs)

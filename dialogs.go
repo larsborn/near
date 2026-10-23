@@ -89,26 +89,51 @@ func padLeft(s string, w int) string {
 	return runewidth.FillLeft(fitLeft(s, w), w)
 }
 
-// drawBox fills an area, draws a single-line frame and centres a title.
+// drawBox draws a FAR dialog: the body extends two columns and one row
+// beyond the double-line frame, a shadow falls to the right and below, and
+// the title sits centred in the top border.
 func (a *App) drawBox(x, y, w, h int, st tcell.Style, title string) {
+	// shadow: darken what is underneath
+	shadow := func(sx, sy, sw, sh int) {
+		for yy := sy; yy < sy+sh; yy++ {
+			for xx := sx; xx < sx+sw; xx++ {
+				if xx < 0 || yy < 0 || xx >= a.w || yy >= a.h {
+					continue
+				}
+				r, _, _, _ := a.screen.GetContent(xx, yy)
+				a.screen.SetContent(xx, yy, r, nil, tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorGray))
+			}
+		}
+	}
+	shadow(x+w+2, y, 2, h+2)
+	shadow(x-2+2, y+h+1, w+4, 1)
+	// body
+	a.fill(maxInt(0, x-2), maxInt(0, y-1), w+4, h+2, st)
 	a.fill(x, y, w, h, st)
 	for i := 1; i < w-1; i++ {
-		a.screen.SetContent(x+i, y, '─', nil, st)
-		a.screen.SetContent(x+i, y+h-1, '─', nil, st)
+		a.screen.SetContent(x+i, y, '═', nil, st)
+		a.screen.SetContent(x+i, y+h-1, '═', nil, st)
 	}
 	for i := 1; i < h-1; i++ {
-		a.screen.SetContent(x, y+i, '│', nil, st)
-		a.screen.SetContent(x+w-1, y+i, '│', nil, st)
+		a.screen.SetContent(x, y+i, '║', nil, st)
+		a.screen.SetContent(x+w-1, y+i, '║', nil, st)
 	}
-	a.screen.SetContent(x, y, '┌', nil, st)
-	a.screen.SetContent(x+w-1, y, '┐', nil, st)
-	a.screen.SetContent(x, y+h-1, '└', nil, st)
-	a.screen.SetContent(x+w-1, y+h-1, '┘', nil, st)
+	a.screen.SetContent(x, y, '╔', nil, st)
+	a.screen.SetContent(x+w-1, y, '╗', nil, st)
+	a.screen.SetContent(x, y+h-1, '╚', nil, st)
+	a.screen.SetContent(x+w-1, y+h-1, '╝', nil, st)
 	if title != "" {
 		t := " " + fitLeft(title, w-4) + " "
 		tx := x + (w-runewidth.StringWidth(t))/2
 		a.print(tx, y, w-2, a.theme.DialogTitle, t)
 	}
+}
+
+// separator draws a horizontal rule across a box at row y.
+func (a *App) separator(x, y, w int, st tcell.Style) {
+	a.hline(x+1, y, w-2, st, '─')
+	a.screen.SetContent(x, y, '╟', nil, st)
+	a.screen.SetContent(x+w-1, y, '╢', nil, st)
 }
 
 func (a *App) center(w, h int) (int, int) {
@@ -125,15 +150,18 @@ func (a *App) center(w, h int) (int, int) {
 
 // ---------------------------------------------------------------- LineEdit
 
-// LineEdit is a single-line text editor shared by all input dialogs.
+// LineEdit is a single-line text editor shared by all input dialogs and the
+// command line. Shift with the movement keys selects; Ctrl+Shift+Left/Right
+// select by word; typing replaces the selection.
 type LineEdit struct {
-	Text []rune
-	Cur  int
-	off  int
+	Text   []rune
+	Cur    int
+	Anchor int // selection anchor, -1 when nothing is selected
+	off    int
 }
 
 func newLineEdit(s string) *LineEdit {
-	e := &LineEdit{}
+	e := &LineEdit{Anchor: -1}
 	e.Set(s)
 	return e
 }
@@ -143,6 +171,59 @@ func (e *LineEdit) String() string { return string(e.Text) }
 func (e *LineEdit) Set(s string) {
 	e.Text = []rune(s)
 	e.Cur = len(e.Text)
+	e.Anchor = -1
+}
+
+// Selection returns the selected range [from, to).
+func (e *LineEdit) Selection() (from, to int, ok bool) {
+	if e.Anchor < 0 || e.Anchor == e.Cur {
+		return 0, 0, false
+	}
+	from, to = e.Anchor, e.Cur
+	if from > to {
+		from, to = to, from
+	}
+	return from, to, true
+}
+
+func (e *LineEdit) SelectedText() string {
+	if from, to, ok := e.Selection(); ok {
+		return string(e.Text[from:to])
+	}
+	return ""
+}
+
+// deleteSelection removes the selected text and reports whether there was one.
+func (e *LineEdit) deleteSelection() bool {
+	from, to, ok := e.Selection()
+	if !ok {
+		e.Anchor = -1
+		return false
+	}
+	e.Text = append(e.Text[:from], e.Text[to:]...)
+	e.Cur = from
+	e.Anchor = -1
+	return true
+}
+
+func (e *LineEdit) insert(s string) {
+	e.deleteSelection()
+	r := []rune(s)
+	e.Text = append(e.Text[:e.Cur], append(r, e.Text[e.Cur:]...)...)
+	e.Cur += len(r)
+}
+
+// move runs a cursor movement, extending the selection when shift is held
+// and dropping it otherwise.
+func (e *LineEdit) move(shift bool, to int) {
+	if shift {
+		if e.Anchor < 0 {
+			e.Anchor = e.Cur
+		}
+	} else {
+		e.Anchor = -1
+	}
+	e.Cur = clampInt(to, 0, len(e.Text))
 }
 
 func (e *LineEdit) wordLeft() int {
@@ -169,48 +250,78 @@ func (e *LineEdit) wordRight() int {
 
 func isWordRune(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' }
 
-// HandleKey returns true when the key was consumed.
-func (e *LineEdit) HandleKey(ev *tcell.EventKey) bool {
-	switch keyName(ev) {
+// HandleKey returns true when the key was consumed. The app is used for
+// the clipboard and may be nil.
+func (e *LineEdit) HandleKey(ev *tcell.EventKey, a *App) bool {
+	name := keyName(ev)
+	shift := strings.Contains(name, "Shift+")
+	switch strings.ReplaceAll(name, "Shift+", "") {
 	case "Left":
-		if e.Cur > 0 {
-			e.Cur--
+		if _, _, ok := e.Selection(); ok && !shift {
+			from, _, _ := e.Selection()
+			e.move(false, from)
+		} else {
+			e.move(shift, e.Cur-1)
 		}
 	case "Right":
-		if e.Cur < len(e.Text) {
-			e.Cur++
+		if _, _, ok := e.Selection(); ok && !shift {
+			_, to, _ := e.Selection()
+			e.move(false, to)
+		} else {
+			e.move(shift, e.Cur+1)
 		}
 	case "Ctrl+Left", "Alt+B":
-		e.Cur = e.wordLeft()
+		e.move(shift, e.wordLeft())
 	case "Ctrl+Right", "Alt+F":
-		e.Cur = e.wordRight()
-	case "Home", "Ctrl+A":
-		e.Cur = 0
-	case "End", "Ctrl+E":
+		e.move(shift, e.wordRight())
+	case "Home":
+		e.move(shift, 0)
+	case "End":
+		e.move(shift, len(e.Text))
+	case "Ctrl+A":
+		e.Anchor = 0
 		e.Cur = len(e.Text)
+	case "Ctrl+E":
+		e.move(shift, len(e.Text))
 	case "Backspace":
-		if e.Cur > 0 {
+		if !e.deleteSelection() && e.Cur > 0 {
 			e.Text = append(e.Text[:e.Cur-1], e.Text[e.Cur:]...)
 			e.Cur--
 		}
 	case "Delete":
-		if e.Cur < len(e.Text) {
+		if !e.deleteSelection() && e.Cur < len(e.Text) {
 			e.Text = append(e.Text[:e.Cur], e.Text[e.Cur+1:]...)
 		}
 	case "Ctrl+U":
 		e.Text = e.Text[:0]
 		e.Cur = 0
+		e.Anchor = -1
 	case "Ctrl+K":
-		e.Text = e.Text[:e.Cur]
+		if !e.deleteSelection() {
+			e.Text = e.Text[:e.Cur]
+		}
 	case "Ctrl+W", "Alt+Backspace", "Ctrl+Backspace":
-		i := e.wordLeft()
-		e.Text = append(e.Text[:i], e.Text[e.Cur:]...)
-		e.Cur = i
+		if !e.deleteSelection() {
+			i := e.wordLeft()
+			e.Text = append(e.Text[:i], e.Text[e.Cur:]...)
+			e.Cur = i
+		}
+	case "Ctrl+C", "Ctrl+Insert":
+		if s := e.SelectedText(); s != "" && a != nil {
+			a.setClipboard(s)
+		}
+	case "Ctrl+X":
+		if s := e.SelectedText(); s != "" && a != nil {
+			a.setClipboard(s)
+			e.deleteSelection()
+		}
+	case "Ctrl+V", "Insert":
+		if a != nil && a.clipboard != "" {
+			e.insert(strings.SplitN(a.clipboard, "\n", 2)[0])
+		}
 	default:
 		if ev.Key() == tcell.KeyRune && ev.Modifiers()&(tcell.ModCtrl|tcell.ModAlt|tcell.ModMeta) == 0 {
-			r := ev.Rune()
-			e.Text = append(e.Text[:e.Cur], append([]rune{r}, e.Text[e.Cur:]...)...)
-			e.Cur++
+			e.insert(string(ev.Rune()))
 			return true
 		}
 		return false
@@ -236,7 +347,14 @@ func (e *LineEdit) Draw(a *App, x, y, w int, st tcell.Style, focused bool) {
 		end = len(e.Text)
 	}
 	a.fill(x, y, w, 1, st)
-	a.print(x, y, w, st, string(e.Text[e.off:end]))
+	from, to, hasSel := e.Selection()
+	for i := e.off; i < end; i++ {
+		cs := st
+		if hasSel && i >= from && i < to {
+			cs = st.Reverse(true)
+		}
+		a.print(x+i-e.off, y, 1, cs, string(e.Text[i]))
+	}
 	if focused {
 		a.screen.ShowCursor(x+e.Cur-e.off, y)
 	}
@@ -268,7 +386,7 @@ func (d *InputDialog) HandleKey(a *App, ev *tcell.EventKey) {
 	case "Esc":
 		a.pop()
 	default:
-		d.Edit.HandleKey(ev)
+		d.Edit.HandleKey(ev, a)
 	}
 }
 
