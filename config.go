@@ -37,26 +37,28 @@ type Bookmark struct {
 
 // Config is the on-disk configuration.
 type Config struct {
-	Editor             string              `toml:"editor"`
-	Shell              string              `toml:"shell"`
-	Theme              string              `toml:"theme"`
-	ShowHidden         bool                `toml:"show_hidden"`
-	ConfirmDelete      bool                `toml:"confirm_delete"`
-	CommandWait        bool                `toml:"command_wait"`
-	DateFormat         string              `toml:"date_format"`
-	TimeFormat         string              `toml:"time_format"`
-	InternalEditor     bool                `toml:"internal_editor"`
-	EditorTabSize      int                 `toml:"editor_tab_size"`
-	NotesFile          string              `toml:"notes_file"`
-	SearchRoots        []string            `toml:"search_roots"`
-	SearchExclude      []string            `toml:"search_exclude"`
-	SearchMaxResults   int                 `toml:"search_max_results"`
-	SearchIndexOnStart bool                `toml:"search_index_on_start"`
-	SearchWatch        bool                `toml:"search_watch"`
-	SearchWatchMaxDirs int                 `toml:"search_watch_max_dirs"`
-	Keys               map[string][]string `toml:"keys"`
-	Menus              []Menu              `toml:"menus"`
-	Bookmarks          []Bookmark          `toml:"bookmarks"`
+	Editor              string              `toml:"editor"`
+	Shell               string              `toml:"shell"`
+	Theme               string              `toml:"theme"`
+	ShowHidden          bool                `toml:"show_hidden"`
+	ConfirmDelete       bool                `toml:"confirm_delete"`
+	CommandWait         bool                `toml:"command_wait"`
+	InteractiveCommands []string            `toml:"interactive_commands"`
+	ConsoleLines        int                 `toml:"console_lines"`
+	DateFormat          string              `toml:"date_format"`
+	TimeFormat          string              `toml:"time_format"`
+	InternalEditor      bool                `toml:"internal_editor"`
+	EditorTabSize       int                 `toml:"editor_tab_size"`
+	NotesFile           string              `toml:"notes_file"`
+	SearchRoots         []string            `toml:"search_roots"`
+	SearchExclude       []string            `toml:"search_exclude"`
+	SearchMaxResults    int                 `toml:"search_max_results"`
+	SearchIndexOnStart  bool                `toml:"search_index_on_start"`
+	SearchWatch         bool                `toml:"search_watch"`
+	SearchWatchMaxDirs  int                 `toml:"search_watch_max_dirs"`
+	Keys                map[string][]string `toml:"keys"`
+	Menus               []Menu              `toml:"menus"`
+	Bookmarks           []Bookmark          `toml:"bookmarks"`
 
 	dir  string // directory holding config, state and index cache
 	path string
@@ -260,7 +262,15 @@ shell = ""           # empty: $SHELL or sh (cmd on Windows)
 theme = "far"        # "far" (blue, FAR-like) or "plain" (terminal colours)
 show_hidden = true   # list dot files and files with the hidden attribute (Ctrl+F10 toggles)
 confirm_delete = true
-command_wait = true  # after a command from the command line, wait for Enter so its output stays readable
+# Commands typed at the command line run with their output captured into
+# near's console view, which replaces the panels and stays until Ctrl+O; the
+# command line keeps working like a shell and Ctrl+C stops the command.
+# Programs that need a real terminal are run outside instead: everything
+# listed here, or any command sent with Shift+Enter.
+interactive_commands = ["vi", "vim", "nvim", "nano", "emacs", "less", "more", "man", "ssh", "telnet",
+  "htop", "top", "python", "python3", "node", "irb", "sh", "bash", "zsh", "fish", "cmd", "powershell", "pwsh"]
+console_lines = 5000     # output lines kept in the console view
+command_wait = true      # after a command run outside (menu item, Shift+Enter), wait for Enter before returning
 date_format = "2006-01-02"         # Go time layout for the Date column
 time_format = "15:04"              # ... and the Time column
 notes_file = ".near-notes"         # per-directory hidden notes file (JSON)

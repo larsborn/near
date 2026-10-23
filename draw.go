@@ -34,8 +34,14 @@ func (a *App) draw() {
 	// the rows below a panel made shorter with Ctrl+Down.
 	a.fill(0, 0, a.w, ph, a.theme.Cmd)
 	if a.hideAll {
+		a.drawConsole(ph)
 		if a.status == "" {
-			a.setStatus("Panels hidden, Ctrl+O shows them again")
+			switch {
+			case a.running != nil:
+				a.setStatus("Running… Ctrl+C stops it. Ctrl+O shows the panels")
+			default:
+				a.setStatus("Console view: type the next command, Ctrl+O shows the panels")
+			}
 		}
 	} else {
 		if !a.hidden[0] {

@@ -73,9 +73,14 @@ then the dialog stack. The FAR-like column layout (centred titles, `│` separat
 **Long operations** run synchronously inside the event loop and call `a.progress(title, item)`,
 which redraws and returns false if Esc is queued (copy/move/delete, content compare).
 
-**Shell and editor** (`commands.go`): `runShell` suspends tcell, runs via `shellCommand`
-(platform file; `cmd /S /C` with raw `CmdLine` on Windows, `sh -c` elsewhere), optionally waits
-for Enter, resumes. `editFileThen(path, external, done)` is the single entry for editing — the
+**Shell, console and editor** (`commands.go`, `console.go`): commands typed at the command
+line go through `runCommandLine` → `runInConsole`: started with stdout/stderr on a pipe, no
+stdin, output fed to `Console` (SGR-aware line buffer) by a goroutine that posts
+`EventConsole`/`EventCommandDone`; `hideAll` is switched on so `draw` shows the console instead
+of the panels, and it stays on. Ctrl+C → `killTree` (platform: taskkill /T or SIGTERM to the
+process group). Programs in `interactive_commands`, Shift+Enter, menu items and the external
+editor use `runShell` instead, which suspends tcell, runs via `shellCommand` (platform file;
+`cmd /S /C` with raw `CmdLine` on Windows, `sh -c` elsewhere), optionally waits for Enter, resumes. `editFileThen(path, external, done)` is the single entry for editing — the
 built-in `Editor` dialog calls `done` from its close callback, the external editor blocks, so
 callers (mass rename's F4 flow) must not assume synchronous completion.
 

@@ -67,7 +67,7 @@ func (a *App) showHistory() {
 	}
 	d := a.list("Command history", historyItems(a.history, nil), func(_ int, li ListItem) {
 		a.cmd.Set(li.Data.(string))
-		a.runCommandLine()
+		a.runCommandLine(false)
 	})
 	d.Searchable = true
 	d.Width = clampInt(a.w-10, 40, 100)

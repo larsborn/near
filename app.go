@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -45,6 +47,9 @@ type App struct {
 	heights     [2]int   // rows taken off a panel's height (Ctrl+Up/Down), 0 = full
 	split       int      // shift of the divider from the middle (Ctrl+Left/Right)
 	clipboard   string   // last text copied inside near
+	console     *Console // output of commands run from the command line
+	running     *exec.Cmd
+	runStart    time.Time
 }
 
 // panelVisible reports whether panel i is drawn.
@@ -85,6 +90,7 @@ func newApp(cfg *Config, s tcell.Screen) *App {
 	a.theme = themeByName(cfg.Theme)
 	a.keymap = buildKeymap(cfg)
 	a.index = newIndex()
+	a.console = newConsole(a.theme.Cmd, cfg.ConsoleLines)
 	for i := range a.panels {
 		a.panels[i] = &Panel{}
 	}
@@ -228,6 +234,10 @@ func (a *App) handleEvent(ev tcell.Event) {
 				e.pasteText(string(ev.Data()))
 			}
 		}
+	case *EventConsole:
+		// new output arrived; the redraw shows it
+	case *EventCommandDone:
+		a.commandDone(ev.err)
 	}
 }
 
@@ -241,6 +251,29 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 		return
 	}
 	name := keyName(ev)
+	// A running console command owns Ctrl+C.
+	if a.running != nil && name == "Ctrl+C" {
+		a.stopCommand()
+		return
+	}
+	// With the panels hidden the paging keys scroll the console.
+	if a.hideAll && len(a.cmd.Text) == 0 {
+		rows := a.h - bottomRows
+		switch name {
+		case "PgUp":
+			a.console.scrollBy(rows-1, a.w, rows)
+			return
+		case "PgDn":
+			a.console.scrollBy(-(rows - 1), a.w, rows)
+			return
+		case "Home":
+			a.console.scrollBy(1<<30, a.w, rows)
+			return
+		case "End":
+			a.console.scrollBy(-(1 << 30), a.w, rows)
+			return
+		}
+	}
 	action, bound := a.keymap[name]
 	typing := len(a.cmd.Text) > 0
 	plainRune := ev.Key() == tcell.KeyRune && ev.Modifiers()&(tcell.ModCtrl|tcell.ModAlt|tcell.ModMeta) == 0
@@ -259,7 +292,10 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 	if typing {
 		switch name {
 		case "Enter":
-			a.runCommandLine()
+			a.runCommandLine(false)
+			return
+		case "Shift+Enter":
+			a.runCommandLine(true)
 			return
 		case "Esc":
 			a.cmd.Set("")
@@ -464,6 +500,9 @@ func (a *App) doAction(action string) {
 	t := a.tab()
 	switch action {
 	case "quit":
+		if a.running != nil {
+			a.stopCommand()
+		}
 		a.quit = true
 	case "help":
 		a.showHelp()

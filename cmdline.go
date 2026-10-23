@@ -64,7 +64,9 @@ func (a *App) historyStep(delta int) {
 }
 
 // runCommandLine executes the command line in the active panel's directory.
-func (a *App) runCommandLine() {
+// Output is captured into the console view unless the program needs a real
+// terminal (interactive_commands) or terminal is set (Shift+Enter).
+func (a *App) runCommandLine(terminal bool) {
 	line := strings.TrimSpace(a.cmd.String())
 	a.cmd.Set("")
 	if line == "" {
@@ -72,9 +74,17 @@ func (a *App) runCommandLine() {
 	}
 	a.addHistory(line)
 	if a.handleCd(line) {
+		if a.hideAll {
+			a.console.Println(a.prompt()+line, a.theme.CmdPrompt)
+		}
 		return
 	}
-	a.runShell(a.expandPlaceholders(line), a.tab().Path, a.cfg.CommandWait, false)
+	expanded := a.expandPlaceholders(line)
+	if terminal || a.isInteractive(line) {
+		a.runShell(expanded, a.tab().Path, a.cfg.CommandWait, false)
+		return
+	}
+	a.runInConsole(expanded, a.tab().Path)
 }
 
 // handleCd implements "cd", "cd <dir>" and (on Windows) "d:" without a

@@ -248,10 +248,18 @@ func (ix *Index) post(ev tcell.Event) {
 	_ = s.PostEvent(ev)
 }
 
-// Close stops the watcher and writes the cache if it changed.
+// closeSaveMax is the index size up to which Close still writes the cache;
+// larger indexes take hundreds of milliseconds to encode, which would make
+// quitting feel slow, so they rely on the periodic save and the save after
+// each rebuild instead.
+const closeSaveMax = 200000
+
+// Close stops the watcher and writes the cache if that is cheap.
 func (ix *Index) Close() {
 	ix.StopWatch()
-	_ = ix.saveCache()
+	if ix.Count() <= closeSaveMax {
+		_ = ix.saveCache()
+	}
 }
 
 // ---------------------------------------------------------------- cache

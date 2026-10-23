@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
+	"time"
 )
 
 func hasHiddenAttr(info fs.FileInfo) bool { return false }
@@ -81,3 +83,23 @@ func shellCommand(shell, cmdline string) *exec.Cmd {
 }
 
 func pathsEqualFold() bool { return runtime.GOOS == "darwin" }
+
+// setProcessGroup puts the command in its own process group so that
+// killTree can end it together with its children.
+func setProcessGroup(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+}
+
+// killTree sends SIGTERM to the command's process group, then SIGKILL if
+// it is still around a moment later.
+func killTree(cmd *exec.Cmd) {
+	if cmd.Process == nil {
+		return
+	}
+	pgid := -cmd.Process.Pid
+	_ = syscall.Kill(pgid, syscall.SIGTERM)
+	go func() {
+		time.Sleep(2 * time.Second)
+		_ = syscall.Kill(pgid, syscall.SIGKILL)
+	}()
+}

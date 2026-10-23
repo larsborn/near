@@ -32,6 +32,14 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   `Esc` clears it. `Ctrl+Enter` (or `Ctrl+J`) inserts the current entry's name,
   `Alt+Enter` its full path. `cd <dir>` moves the panel instead of spawning a
   shell. `Ctrl+E`/`Ctrl+X` step through the history.
+- **Console view.** A command run from the command line has its output
+  captured, coloured, into a console that replaces the panels and stays
+  there, like FAR with the panels switched off: you keep typing commands at
+  the bottom, the output accumulates above, `PgUp`/`PgDn` scroll it, `Ctrl+C`
+  stops a running command and `Ctrl+O` switches between console and panels.
+  Programs that need a real terminal (`interactive_commands` in the config:
+  editors, pagers, shells, ssh) run outside instead, as does anything sent
+  with `Shift+Enter`.
 - **Esc goes to the parent directory.** Every key is configurable.
 - **Everything-like search** (`Alt+F7` / `Ctrl+F`): an in-memory index of every
   file name below `search_roots`, built in the background, cached between runs

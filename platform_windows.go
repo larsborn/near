@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -62,3 +63,18 @@ func shellCommand(shell, cmdline string) *exec.Cmd {
 }
 
 func pathsEqualFold() bool { return true }
+
+// setProcessGroup is a no-op on Windows; killTree uses taskkill instead.
+func setProcessGroup(cmd *exec.Cmd) {}
+
+// killTree ends the command and everything it started.
+func killTree(cmd *exec.Cmd) {
+	if cmd.Process == nil {
+		return
+	}
+	k := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid))
+	k.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	if err := k.Run(); err != nil {
+		_ = cmd.Process.Kill()
+	}
+}
