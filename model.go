@@ -60,20 +60,27 @@ func newTab(path string) *Tab {
 	return &Tab{Path: path, Selected: map[string]bool{}, posMem: map[string]string{}}
 }
 
-// Load (re)reads the directory, keeping cursor and selection where possible.
+// Load (re)reads the directory synchronously, keeping cursor and selection
+// where possible. The app uses Apply with a background read instead.
 func (t *Tab) Load(showHidden bool, notesFile string) {
+	entries, err := listDir(t.Path, showHidden, notesFile)
+	t.Apply(entries, loadNotes(t.Path, notesFile), err)
+}
+
+// Apply installs a freshly read listing, keeping cursor and selection where
+// possible.
+func (t *Tab) Apply(entries []Entry, notes map[string]string, err error) {
 	var keep string
 	if cur := t.Current(); cur != nil {
 		keep = cur.Name
 	}
-	entries, err := listDir(t.Path, showHidden, notesFile)
 	t.Err = err
 	if parent := filepath.Dir(t.Path); parent != t.Path {
 		entries = append([]Entry{{Name: "..", IsDir: true, IsUp: true}}, entries...)
 	}
 	sortEntries(entries, t.Sort, t.SortRev)
 	t.Entries = entries
-	t.Notes = loadNotes(t.Path, notesFile)
+	t.Notes = notes
 	for name := range t.Selected {
 		if t.indexOf(name) < 0 {
 			delete(t.Selected, name)

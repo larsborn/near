@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -56,6 +57,7 @@ type App struct {
 	lastProgressItem string
 	spinner          int
 	transfers        *transferQueue // copies and moves, run one after another
+	slowBoxShown     bool           // the slow directory box was drawn (tests)
 }
 
 // panelVisible reports whether panel i is drawn.
@@ -396,8 +398,15 @@ func (a *App) panel() *Panel { return a.panels[a.active] }
 func (a *App) tab() *Tab     { return a.panels[a.active].Tab() }
 func (a *App) other() *Tab   { return a.panels[1-a.active].Tab() }
 
+// loadTab re-reads a tab's directory with the slow-read box; giving up
+// keeps the previous listing.
 func (a *App) loadTab(t *Tab) {
-	t.Load(a.showHidden, a.cfg.NotesFile)
+	entries, notes, err := a.listDirWait(t.Path)
+	if errors.Is(err, errDirCancelled) {
+		a.setStatus("Directory read abandoned; showing the previous listing")
+		return
+	}
+	t.Apply(entries, notes, err)
 	if t.Err != nil {
 		a.setErr(t.Err)
 	}
@@ -420,13 +429,20 @@ func (a *App) navigate(t *Tab, path, cursorName string) error {
 		cursorName = filepath.Base(path)
 		path = filepath.Dir(path)
 	}
+	// Read the new directory first: if that is slow and the user gives up,
+	// the tab stays where it was.
+	entries, notes, err := a.listDirWait(path)
+	if errors.Is(err, errDirCancelled) {
+		a.setStatus("Directory read abandoned; staying in " + fitRight(t.Path, 40))
+		return nil
+	}
 	if cur := t.Current(); cur != nil {
 		t.posMem[t.Path] = cur.Name
 	}
 	t.Path = path
 	t.Cursor, t.Top = 0, 0
 	t.Selected = map[string]bool{}
-	a.loadTab(t)
+	t.Apply(entries, notes, err)
 	if t.Err != nil {
 		return t.Err
 	}

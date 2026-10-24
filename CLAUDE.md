@@ -72,6 +72,9 @@ maps (`[keys]`: unlisted actions keep defaults) but replaces slices (`[[menus]]`
 **Panels and drawing** (`model.go`, `draw.go`). `Panel` holds `Tab`s; a `Tab` is a directory
 listing with cursor, selection map, sort, per-directory notes and a cursor-position memory.
 `App.navigate` is the only way to change a tab's directory (it records folder history).
+Directory reads go through `listDirWait` (`slowdir.go`): the listing runs in a goroutine, and
+after `slowDirDelay` a "Reading directory…" box polls for Esc, which returns `errDirCancelled`
+so `navigate`/`loadTab` keep the previous state. `listDirFn` is the hook tests use to slow it.
 `draw.go` lays out: two panels (`panelChrome` = 7 fixed rows per panel, `bottomRows` = 3 for
 status, command line, key bar), hidden/resized panels (`hidden`, `hideAll`, `heights`, `split`),
 then the dialog stack. The FAR-like column layout (centred titles, `│` separators, sort letter,

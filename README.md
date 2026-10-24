@@ -117,6 +117,10 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   first/last entry, `Shift+PgUp`/`Shift+PgDn` a page (from an already selected
   entry these unselect instead), `+`/`-`/`*` by pattern and invert, `Ctrl+A`
   all.
+- **Slow directories** (network shares, sleeping disks): a directory that
+  takes longer than a third of a second to read shows a "Reading directory…"
+  box with the elapsed time; `Esc` there gives up and leaves the panel where
+  it was.
 - Also: selection by glob or regex (`+` `-` `*`), sort menu (`Ctrl+F12`),
   hidden files (`Ctrl+F10`), locations dialog with drives, mounts, bookmarks
   and open tabs (`Alt+F1`), go to path (`Ctrl+G`), viewer with hex mode (`F3`),
