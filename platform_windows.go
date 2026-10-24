@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"golang.org/x/sys/windows"
 )
 
 func hasHiddenAttr(info fs.FileInfo) bool {
@@ -43,8 +45,17 @@ func listLocations() []Bookmark {
 	return out
 }
 
-func osOpenCmd(path string) *exec.Cmd {
-	return exec.Command("rundll32", "url.dll,FileProtocolHandler", path)
+// osOpen opens path with its associated program through ShellExecuteW, which
+// takes the path as UTF-16 so names outside the system code page work
+// (rundll32 url.dll,FileProtocolHandler is ANSI-only and mangles them).
+func osOpen(path string) error {
+	p, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return err
+	}
+	verb, _ := windows.UTF16PtrFromString("open")
+	dir, _ := windows.UTF16PtrFromString(filepath.Dir(path))
+	return windows.ShellExecute(0, verb, p, nil, dir, windows.SW_SHOWNORMAL)
 }
 
 func defaultShell() string  { return "cmd" }

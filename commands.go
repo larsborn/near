@@ -138,12 +138,10 @@ func (a *App) editFileThen(path string, external bool, done func()) {
 }
 
 func (a *App) openWithOS(path string) {
-	cmd := osOpenCmd(path)
-	if err := cmd.Start(); err != nil {
-		a.setErr(err)
+	if err := osOpen(path); err != nil {
+		a.setErr(fmt.Errorf("open %s: %v", filepath.Base(path), err))
 		return
 	}
-	go func() { _ = cmd.Wait() }()
 	a.fileHistory = pushHistory(a.fileHistory, path, historyMax)
 	a.setStatus("Opened " + filepath.Base(path))
 }

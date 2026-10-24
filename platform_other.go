@@ -62,11 +62,19 @@ func listLocations() []Bookmark {
 	return out
 }
 
-func osOpenCmd(path string) *exec.Cmd {
+// osOpen opens path with its associated program (open / xdg-open).
+func osOpen(path string) error {
+	var cmd *exec.Cmd
 	if runtime.GOOS == "darwin" {
-		return exec.Command("open", path)
+		cmd = exec.Command("open", path)
+	} else {
+		cmd = exec.Command("xdg-open", path)
 	}
-	return exec.Command("xdg-open", path)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }()
+	return nil
 }
 
 func defaultShell() string {
