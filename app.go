@@ -295,7 +295,7 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 	if a.hideAll {
 		rows := a.h - bottomRows + 1 // the console also uses the (cleared) status row
 		switch name {
-		case "Tab", "Shift+Tab", "Shift+Up", "Shift+Down":
+		case "Tab", "Shift+Tab", "Shift+Up", "Shift+Down", "Shift+Home", "Shift+End", "Shift+PgUp", "Shift+PgDn":
 			return
 		case "Up":
 			a.historyStep(-1)
@@ -628,6 +628,14 @@ func (a *App) doAction(action string) {
 	case "select_up":
 		t.ToggleSelect()
 		t.MoveCursor(-1)
+	case "select_to_home":
+		t.SelectRange(0)
+	case "select_to_end":
+		t.SelectRange(len(t.Entries) - 1)
+	case "select_page_up":
+		t.SelectRange(maxInt(0, t.Cursor-a.listRows(a.active)))
+	case "select_page_down":
+		t.SelectRange(clampInt(t.Cursor+a.listRows(a.active), 0, len(t.Entries)-1))
 	case "select_pattern":
 		a.selectPattern(true)
 	case "unselect_pattern":
@@ -714,7 +722,9 @@ func (a *App) doAction(action string) {
 	case "mkdir":
 		a.makeDir()
 	case "delete":
-		a.deleteSelected()
+		a.deleteSelected(!a.cfg.DeleteToTrash)
+	case "delete_permanent":
+		a.deleteSelected(true)
 	case "quick_launch":
 		if len(a.cfg.Menus) == 0 {
 			a.setStatus("No menus defined in " + a.cfg.path)

@@ -234,7 +234,7 @@ func (a *App) makeDir() {
 	})
 }
 
-func (a *App) deleteSelected() {
+func (a *App) deleteSelected(permanent bool) {
 	t := a.tab()
 	targets := t.Targets()
 	if len(targets) == 0 {
@@ -243,20 +243,37 @@ func (a *App) deleteSelected() {
 	run := func() {
 		var err error
 		done := 0
-		for _, e := range targets {
-			full := filepath.Join(t.Path, e.Name)
-			if err = deleteTree(full, func(item string, _, _ int64) bool { return a.progress("Deleting", item, -1, -1) }); err != nil {
-				break
+		if permanent {
+			for _, e := range targets {
+				full := filepath.Join(t.Path, e.Name)
+				if err = deleteTree(full, func(item string, _, _ int64) bool { return a.progress("Deleting", item, -1, -1) }); err != nil {
+					break
+				}
+				deleteNote(t.Path, e.Name, a.cfg.NotesFile)
+				done++
 			}
-			deleteNote(t.Path, e.Name, a.cfg.NotesFile)
-			done++
+		} else {
+			var paths []string
+			for _, e := range targets {
+				paths = append(paths, filepath.Join(t.Path, e.Name))
+			}
+			a.progress("Moving to the "+trashName, fitLeft(targets[0].Name, 60), -1, -1)
+			if err = trashPaths(paths); err == nil {
+				for _, e := range targets {
+					deleteNote(t.Path, e.Name, a.cfg.NotesFile)
+				}
+				done = len(targets)
+			}
 		}
 		t.Selected = map[string]bool{}
 		a.reloadAll()
-		if err != nil {
+		switch {
+		case err != nil:
 			a.setErr(fmt.Errorf("delete: %v (%d done)", err, done))
-		} else {
+		case permanent:
 			a.setStatus(fmt.Sprintf("Deleted %d entries", done))
+		default:
+			a.setStatus(fmt.Sprintf("Moved %d entries to the %s", done, trashName))
 		}
 	}
 	if !a.cfg.ConfirmDelete {
@@ -275,7 +292,13 @@ func (a *App) deleteSelected() {
 		}
 		lines = append(lines, "  "+n)
 	}
-	a.confirm(fmt.Sprintf("Delete %d entries permanently?", len(targets)), lines, []string{"Delete", "Cancel"}, func(r int) {
+	title := fmt.Sprintf("Move %d entries to the %s?", len(targets), trashName)
+	button := "Move"
+	if permanent {
+		title = fmt.Sprintf("Delete %d entries permanently?", len(targets))
+		button = "Delete"
+	}
+	a.confirm(title, lines, []string{button, "Cancel"}, func(r int) {
 		if r == 0 {
 			run()
 		}

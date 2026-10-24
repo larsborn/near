@@ -107,6 +107,16 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   background is doing; `Ctrl+B` lists all transfers, finished ones included
   with done / cancelled / failed, `Enter` shows one's box, `Delete` cancels
   a running or queued one. Quitting with transfers running asks first.
+- **Delete to the Recycle Bin.** `F8` and `Delete` move entries to the
+  Recycle Bin on Windows, the FreeDesktop trash on Linux (home trash, or
+  `.Trash-<uid>` on another filesystem) and `~/.Trash` on macOS; `Shift+F8`
+  and `Shift+Delete` delete permanently. `delete_to_trash = false` makes the
+  plain keys permanent too.
+- **Selection keys** as in FAR: `Insert`/`Space` toggle, `Shift+Up`/`Shift+Down`
+  toggle and move, `Shift+Home`/`Shift+End` select from the cursor to the
+  first/last entry, `Shift+PgUp`/`Shift+PgDn` a page (from an already selected
+  entry these unselect instead), `+`/`-`/`*` by pattern and invert, `Ctrl+A`
+  all.
 - Also: selection by glob or regex (`+` `-` `*`), sort menu (`Ctrl+F12`),
   hidden files (`Ctrl+F10`), locations dialog with drives, mounts, bookmarks
   and open tabs (`Alt+F1`), go to path (`Ctrl+G`), viewer with hex mode (`F3`),

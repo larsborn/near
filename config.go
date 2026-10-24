@@ -42,6 +42,7 @@ type Config struct {
 	Theme               string              `toml:"theme"`
 	ShowHidden          bool                `toml:"show_hidden"`
 	ConfirmDelete       bool                `toml:"confirm_delete"`
+	DeleteToTrash       bool                `toml:"delete_to_trash"`
 	CommandWait         bool                `toml:"command_wait"`
 	InteractiveCommands []string            `toml:"interactive_commands"`
 	ConsoleLines        int                 `toml:"console_lines"`
@@ -263,6 +264,7 @@ shell = ""           # empty: $SHELL or sh (cmd on Windows)
 theme = "far"        # "far" (blue, FAR-like) or "plain" (terminal colours)
 show_hidden = true   # list dot files and files with the hidden attribute (Ctrl+F10 toggles)
 confirm_delete = true
+delete_to_trash = true   # F8 / Delete move to the Recycle Bin (trash); Shift+F8 / Shift+Delete delete for good
 # Commands typed at the command line run with their output captured into
 # near's console view, which replaces the panels and stays until Ctrl+O; the
 # command line keeps working like a shell and Ctrl+C stops the command.
@@ -328,6 +330,10 @@ up_dir = ["Esc", "Backspace"]
 select = ["Insert", "Space"]
 select_up = ["Shift+Up"]               # FAR: toggle selection and move up
 select_down = ["Shift+Down"]           # FAR: toggle selection and move down
+select_to_home = ["Shift+Home"]        # FAR: select from the cursor to the first entry
+select_to_end = ["Shift+End"]          # ... to the last entry
+select_page_up = ["Shift+PgUp"]
+select_page_down = ["Shift+PgDn"]
 select_pattern = ["+"]
 unselect_pattern = ["-"]
 invert_selection = ["*"]
@@ -356,7 +362,8 @@ move = ["F6"]
 rename = ["Shift+F6"]
 mass_rename = ["Ctrl+F6", "Alt+F6"]
 mkdir = ["F7"]
-delete = ["F8", "Delete"]
+delete = ["F8", "Delete"]           # to the Recycle Bin / trash (see delete_to_trash)
+delete_permanent = ["Shift+F8", "Shift+Delete"]
 quick_launch = ["F2"]
 menus = ["F9"]
 notes = ["Ctrl+N"]

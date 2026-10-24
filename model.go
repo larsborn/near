@@ -158,6 +158,34 @@ func (t *Tab) ToggleSelect() {
 	}
 }
 
+// SelectRange selects every entry between the cursor and index to (both
+// included) and moves the cursor there; if the current entry is already
+// selected the range is unselected instead, as in FAR.
+func (t *Tab) SelectRange(to int) {
+	if len(t.Entries) == 0 {
+		return
+	}
+	to = clampInt(to, 0, len(t.Entries)-1)
+	cur := t.Current()
+	selecting := cur == nil || !t.Selected[cur.Name]
+	lo, hi := t.Cursor, to
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	for i := lo; i <= hi; i++ {
+		e := t.Entries[i]
+		if e.IsUp {
+			continue
+		}
+		if selecting {
+			t.Selected[e.Name] = true
+		} else {
+			delete(t.Selected, e.Name)
+		}
+	}
+	t.Cursor = to
+}
+
 // Targets returns the selected entries, or the current one if nothing is
 // selected. The ".." entry is never a target.
 func (t *Tab) Targets() []Entry {
