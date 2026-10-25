@@ -101,7 +101,7 @@ func TestApplyCommandRunsPerFileConsecutively(t *testing.T) {
 	in.Edit.Set("old")
 	key(a, "Enter")
 	waitCommand(t, a)
-	if !strings.Contains(a.console.Text(), "old photo.jpg") {
+	if !strings.Contains(strings.ReplaceAll(a.console.Text(), `"`, ""), "old photo.jpg") {
 		t.Fatalf("prompted value not substituted:\n%s", a.console.Text())
 	}
 }
