@@ -30,6 +30,8 @@ type Index struct {
 
 	building atomic.Bool
 	progress atomic.Int64
+	walking  atomic.Value // directory the build is in (string)
+	lastPost time.Time    // last progress event, build goroutine only
 
 	roots     []string
 	exclude   excludeSet
@@ -56,6 +58,10 @@ type Index struct {
 
 // EventIndexDone is posted to the screen when a build ends.
 type EventIndexDone struct{ tcell.EventTime }
+
+// EventIndexProgress is posted now and then while a build runs so the
+// search dialog can show how far it is.
+type EventIndexProgress struct{ tcell.EventTime }
 
 // EventIndexChanged is posted when the watcher applied changes.
 type EventIndexChanged struct{ tcell.EventTime }
@@ -91,6 +97,31 @@ func (ix *Index) BuiltAt() time.Time {
 }
 
 func (ix *Index) Building() bool { return ix.building.Load() }
+
+// Roots returns the directories the index covers.
+func (ix *Index) Roots() []string {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	return append([]string{}, ix.roots...)
+}
+
+// Walking returns the directory a running build is in.
+func (ix *Index) Walking() string {
+	if v, ok := ix.walking.Load().(string); ok {
+		return v
+	}
+	return ""
+}
+
+// progressEvent reports the build's progress at most every 300 ms.
+func (ix *Index) progressEvent(dir string) {
+	if time.Since(ix.lastPost) < 300*time.Millisecond {
+		return
+	}
+	ix.lastPost = time.Now()
+	ix.walking.Store(dir)
+	ix.post(&EventIndexProgress{})
+}
 
 func (ix *Index) Err() error {
 	ix.mu.RLock()
@@ -171,6 +202,8 @@ func (ix *Index) Build() {
 	}
 	defer ix.building.Store(false)
 	ix.progress.Store(0)
+	ix.walking.Store("")
+	ix.lastPost = time.Time{}
 	ix.mu.RLock()
 	roots, exclude := append([]string{}, ix.roots...), ix.exclude
 	ix.mu.RUnlock()
@@ -205,6 +238,7 @@ func (ix *Index) Build() {
 			count++
 			if count%2048 == 0 {
 				ix.progress.Store(int64(count))
+				ix.progressEvent(parent)
 			}
 			return nil
 		})
@@ -298,6 +332,8 @@ func (ix *Index) post(ev tcell.Event) {
 	case *EventIndexDone:
 		e.SetEventNow()
 	case *EventIndexChanged:
+		e.SetEventNow()
+	case *EventIndexProgress:
 		e.SetEventNow()
 	}
 	_ = s.PostEvent(ev)

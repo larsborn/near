@@ -272,8 +272,8 @@ func (a *App) handleEvent(ev tcell.Event) {
 		if err := a.index.Err(); err != nil {
 			a.setErr(fmt.Errorf("search index: %v", err))
 		}
-	case *EventIndexChanged:
-		// The index was updated by the watcher; redraw picks it up.
+	case *EventIndexChanged, *EventIndexProgress:
+		// The index was updated by the watcher or is being built; redraw picks it up.
 	case *tcell.EventClipboard:
 		if len(a.dialogs) > 0 {
 			if e, ok := a.top().(*Editor); ok {

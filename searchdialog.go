@@ -158,6 +158,14 @@ func (d *SearchDialog) Draw(a *App) {
 		d.top = d.cursor - rows + 1
 	}
 	iw := w - 4
+	if len(d.results) == 0 {
+		// Say what is going on instead of leaving the list blank.
+		for i, line := range d.stateLines(a) {
+			if i < rows {
+				a.print(x+2, y+3+i, iw, th.ListDim, fitLeft(line, iw))
+			}
+		}
+	}
 	for i := 0; i < rows; i++ {
 		idx := d.top + i
 		if idx >= len(d.results) {
@@ -187,9 +195,11 @@ func (d *SearchDialog) Draw(a *App) {
 	var status string
 	switch {
 	case a.index.Building():
-		status = fmt.Sprintf("indexing… %s names so far", groupDigits(a.index.progress.Load()))
+		status = fmt.Sprintf("indexing %s… %s names so far", rootsLabel(a.index.Roots()), groupDigits(a.index.progress.Load()))
+	case a.index.Count() == 0 && a.index.Err() != nil:
+		status = "indexing failed: " + a.index.Err().Error()
 	case a.index.Count() == 0:
-		status = "index is empty, check search_roots in " + a.cfg.path
+		status = "index is empty, Ctrl+R rebuilds it"
 	case d.last == "" && d.busy:
 		status = "searching…"
 	case d.last == "":
@@ -202,8 +212,49 @@ func (d *SearchDialog) Draw(a *App) {
 		status = fmt.Sprintf("%d matches", d.total)
 	}
 	foot := "Enter: go to   Ctrl+T: open in new tab   Ctrl+R: rebuild index   Esc: close"
+	status = fitLeft(status, w-4)
 	sw := runewidth.StringWidth(status)
-	a.print(x+2, y+h-1, w-6-sw, th.DialogHint, fitLeft(foot, w-6-sw))
+	if fw := w - 6 - sw; fw > 0 {
+		a.print(x+2, y+h-1, fw, th.DialogHint, fitLeft(foot, fw))
+	}
 	a.print(x+w-2-sw, y+h-1, sw, th.DialogHint, status)
 	_ = strings.TrimSpace
+}
+
+// stateLines describes the dialog's state while there are no results to
+// show: the index being built, failed or empty, a search running, or a
+// query without matches.
+func (d *SearchDialog) stateLines(a *App) []string {
+	ix := a.index
+	fix := []string{"", "Check search_roots in", "  " + a.cfg.path, "and press Ctrl+R to rebuild the index."}
+	switch {
+	case ix.Building():
+		lines := []string{"Building the index of " + rootsLabel(ix.Roots()) + "…", groupDigits(ix.progress.Load()) + " names so far"}
+		if dir := ix.Walking(); dir != "" {
+			lines = append(lines, "Reading "+dir)
+		}
+		if ix.Count() == 0 {
+			lines = append(lines, "", "Results appear when the build is done.")
+		}
+		return lines
+	case ix.Count() == 0 && ix.Err() != nil:
+		return append([]string{"Indexing failed:", "  " + ix.Err().Error()}, fix...)
+	case ix.Count() == 0:
+		return append([]string{"The index is empty: nothing was found below", "  " + rootsLabel(ix.Roots())}, fix...)
+	case d.busy:
+		return []string{"Searching…"}
+	case d.edit.String() == "":
+		return []string{fmt.Sprintf("Type to search %s names in %s.", groupDigits(int64(ix.Count())), rootsLabel(ix.Roots()))}
+	case d.last == d.edit.String():
+		return []string{fmt.Sprintf("No matches for %q.", d.last)}
+	}
+	return nil
+}
+
+// rootsLabel lists the index roots for messages.
+func rootsLabel(roots []string) string {
+	if len(roots) == 0 {
+		return "no search roots"
+	}
+	return strings.Join(roots, ", ")
 }
