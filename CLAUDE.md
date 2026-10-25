@@ -35,6 +35,19 @@ per task (kebab-case filename). Treat it as the work queue; check it when pickin
   tracker, project board). If a backlog is introduced, migrating a `todo/` file there (and
   deleting it here) is a valid resolution.
 
+## Decisions — `decisions/`
+
+`decisions/` is the durable record of choices made in conversation that cannot be derived
+from the code: a FAR behaviour deliberately matched or deliberately deviated from, a
+default, a storage location, a naming rule, a scope cut. One Markdown file per decision
+(kebab-case, template in `decisions/README.md`: Decision / Why / Consequences / Where).
+
+- **Write them autonomously**, in the same commit as the change they describe.
+- **Never rewrite history**: a changed mind gets a new file and the old one is marked
+  `Status: superseded by <file>`.
+- **Resolving a `todo/` item that required a choice produces a decision file.**
+- **Read the relevant decisions before changing related behaviour**, as with `todo/`.
+
 ## Commands
 
 ```sh
