@@ -49,7 +49,7 @@ func TestApplyCommandRunsPerFileConsecutively(t *testing.T) {
 	if _, ok := a.top().(*ApplyDialog); !ok {
 		t.Fatalf("expected the apply dialog, got %T", a.top())
 	}
-	if !strings.Contains(screenText(a), "3 selected entries") {
+	if !strings.Contains(screenText(a), "3 selected entries") || !strings.Contains(screenText(a), "!?Title?Default!") {
 		t.Fatal("dialog should name the selection")
 	}
 	typeText(a, "echo applying !.! base=! ext=!~")

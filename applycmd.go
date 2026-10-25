@@ -12,12 +12,39 @@ import (
 
 // FAR's "Apply command" (Ctrl+G): a command template is run once for every
 // selected entry with FAR's substitutions.
-var applyHelp = []string{
-	"!.!  name with extension      !    name without extension   !~   extension",
-	"!\\   directory (with \\)       !/   directory (without \\)   !:   drive",
-	"!&   all selected names        !@!  file listing all selected full paths",
-	"!!   a literal !               !?Title?Default!  asks once, before running",
-	"near's {file} {path} {dir} {other} placeholders work as well.",
+// applyTokens documents FAR's substitutions; the dialog lays them out in
+// two aligned columns.
+var applyTokens = [][2]string{
+	{"!.!", "name with extension"},
+	{"!", "name without extension"},
+	{"!~", "extension"},
+	{"!\\", "directory, with trailing separator"},
+	{"!/", "directory without separator"},
+	{"!:", "drive"},
+	{"!&", "all selected names"},
+	{"!@!", "file listing all selected paths"},
+	{"!!", "a literal !"},
+	{"!?Title?Default!", "asks once, before running"},
+}
+
+// applyHelpLines formats the token table for a dialog of inner width w:
+// the short tokens in two aligned columns, the prompt form on its own line.
+func applyHelpLines(w int) []string {
+	const tokW, descW = 5, 31
+	short := applyTokens[:len(applyTokens)-1]
+	perRow := maxInt(1, w/(tokW+descW))
+	var lines []string
+	for i := 0; i < len(short); i += perRow {
+		var b strings.Builder
+		for j := i; j < i+perRow && j < len(short); j++ {
+			b.WriteString(padRight(short[j][0], tokW))
+			b.WriteString(padRight(short[j][1], descW))
+		}
+		lines = append(lines, strings.TrimRight(b.String(), " "))
+	}
+	last := applyTokens[len(applyTokens)-1]
+	lines = append(lines, last[0]+"  "+last[1])
+	return append(lines, "near's {file} {path} {dir} {other} placeholders work as well.")
 }
 
 // ApplyDialog asks for the command template.
@@ -59,14 +86,15 @@ func (d *ApplyDialog) HandleKey(a *App, ev *tcell.EventKey) {
 
 func (d *ApplyDialog) Draw(a *App) {
 	th := a.theme
-	w := clampInt(a.w-10, 60, 80)
-	h := 5 + len(applyHelp)
+	w := clampInt(a.w-10, 60, 76)
+	help := applyHelpLines(w - 4)
+	h := 5 + len(help)
 	x, y := a.center(w, h)
 	a.drawBox(x, y, w, h, th.Dialog, "Apply command")
-	a.print(x+2, y+1, w-4, th.Dialog, fmt.Sprintf("Apply command to %d selected entries:", len(d.targets)))
+	a.print(x+2, y+1, w-4, th.Dialog, "Apply command to "+plural(len(d.targets), "selected entry")+":")
 	d.edit.Draw(a, x+2, y+2, w-4, th.InputFocus, true)
 	a.separator(x, y+3, w, th.Dialog)
-	for i, l := range applyHelp {
+	for i, l := range help {
 		a.print(x+2, y+4+i, w-4, th.DialogHint, fitLeft(l, w-4))
 	}
 }
