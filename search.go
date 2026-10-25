@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -71,6 +72,7 @@ func (ix *Index) Configure(cfg *Config, screen tcell.Screen) {
 	for _, r := range cfg.SearchRoots {
 		ix.roots = append(ix.roots, expandPath(r))
 	}
+	ix.roots = outerRoots(ix.roots)
 	ix.exclude = newExcludeSet(cfg.SearchExclude)
 	ix.cacheFile = filepath.Join(cfg.dir, "index.gob")
 	ix.screen = screen
@@ -820,4 +822,41 @@ func (ix *Index) addTreeLocked(root string) ([]string, []flatAdd) {
 		return nil
 	})
 	return added, adds
+}
+
+// outerRoots drops roots that lie inside another root (and duplicates), so
+// ["~", "C:\\"] walks and watches the home directory only once.
+func outerRoots(roots []string) []string {
+	var out []string
+	for i, r := range roots {
+		r = filepath.Clean(r)
+		inner := false
+		for j, o := range roots {
+			o = filepath.Clean(o)
+			if j == i || (o == r && j > i) {
+				continue
+			}
+			if o == r || strings.HasPrefix(foldPath(r), foldPath(withSep(o))) {
+				inner = true
+				break
+			}
+		}
+		if !inner {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// foldPath lowercases a path where the file system ignores case.
+func foldPath(p string) string {
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		return strings.ToLower(p)
+	}
+	return p
+}
+
+// withSep returns the directory with one trailing separator.
+func withSep(dir string) string {
+	return strings.TrimRight(dir, `\/`) + string(filepath.Separator)
 }
