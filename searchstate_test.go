@@ -13,7 +13,7 @@ func TestSearchDialogExplainsItsState(t *testing.T) {
 	a.cfg.SearchRoots = []string{filepath.Join(a.tab().Path, "definitely-not-there")}
 	a.index.Configure(a.cfg, nil)
 	a.index.Build()
-	key(a, "Alt+F7")
+	key(a, "Ctrl+F")
 	// showSearch starts a rebuild of an empty index; wait for it.
 	waitFor(t, "rebuild", func() bool { return !a.index.Building() })
 	a.draw()
@@ -25,7 +25,7 @@ func TestSearchDialogExplainsItsState(t *testing.T) {
 	a.cfg.SearchRoots = []string{a.tab().Path}
 	a.index.Configure(a.cfg, nil)
 	a.index.Build()
-	key(a, "Alt+F7")
+	key(a, "Ctrl+F")
 	a.draw()
 	// The path may be clipped on narrow screens or with CI's long temp paths.
 	if s := screenText(a); !strings.Contains(s, "Type to search 9 names in ") {

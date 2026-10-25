@@ -146,7 +146,9 @@ func (a *App) doCopyOrMove(tab *Tab, targets []Entry, dst string, move bool, opt
 		src := filepath.Join(tab.Path, e.Name)
 		d := dst
 		if dstIsDir {
-			d = filepath.Join(dst, e.Name)
+			// Search results are named by their relative path; copy the
+			// entry itself, not the directories above it.
+			d = filepath.Join(dst, filepath.Base(e.Name))
 		}
 		if _, err := os.Lstat(d); err == nil && !sameFile(src, d) {
 			conflicts++
@@ -192,7 +194,11 @@ func (a *App) renameCurrent() {
 	if e == nil || e.IsUp {
 		return
 	}
-	old := e.Name
+	dir, old := t.Path, e.Name
+	if t.Find != nil {
+		// A search result is named by its relative path; rename it in place.
+		dir, old = filepath.Join(t.Path, filepath.Dir(e.Name)), filepath.Base(e.Name)
+	}
 	a.input("Rename", "New name:", old, func(name string) {
 		name = strings.TrimSpace(name)
 		if name == "" || name == old {
@@ -202,11 +208,11 @@ func (a *App) renameCurrent() {
 			a.setErr(fmt.Errorf("name must not contain path separators"))
 			return
 		}
-		if _, err := os.Lstat(filepath.Join(t.Path, name)); err == nil && !strings.EqualFold(name, old) {
+		if _, err := os.Lstat(filepath.Join(dir, name)); err == nil && !strings.EqualFold(name, old) {
 			a.setErr(fmt.Errorf("%s already exists", name))
 			return
 		}
-		if err := renameMany(t.Path, []renamePair{{Old: old, New: name}}, a.cfg.NotesFile); err != nil {
+		if err := renameMany(dir, []renamePair{{Old: old, New: name}}, a.cfg.NotesFile); err != nil {
 			a.setErr(err)
 		}
 		a.reloadAll()

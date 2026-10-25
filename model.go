@@ -54,6 +54,7 @@ type Tab struct {
 	Notes    map[string]string
 	Err      error
 	posMem   map[string]string // directory -> name the cursor was on
+	Find     *findState        // set while the tab shows Find file results
 }
 
 func newTab(path string) *Tab {

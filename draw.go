@@ -149,7 +149,11 @@ func (a *App) drawPanel(idx, x, y, w, h int) {
 	if a.showHidden {
 		flag = " hidden "
 	}
-	a.print(ix, y+1, inner-len(flag), pst, fitRight(t.Path, inner-len(flag)))
+	pathRow := t.Path
+	if t.Find != nil {
+		pathRow = t.Find.label(t.Path, inner-len(flag))
+	}
+	a.print(ix, y+1, inner-len(flag), pst, fitRight(pathRow, inner-len(flag)))
 	a.print(ix+inner-len(flag), y+1, len(flag), th.Info, flag)
 
 	// columns: Name │ Size │ Date │ Time, FAR style

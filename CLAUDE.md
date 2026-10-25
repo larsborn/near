@@ -92,6 +92,9 @@ maps (`[keys]`: unlisted actions keep defaults) but replaces slices (`[[menus]]`
 **Panels and drawing** (`model.go`, `draw.go`). `Panel` holds `Tab`s; a `Tab` is a directory
 listing with cursor, selection map, sort, per-directory notes and a cursor-position memory.
 `App.navigate` is the only way to change a tab's directory (it records folder history).
+A tab with `Find != nil` (`findfile.go`, Alt+F7) lists search results instead: entry names are
+paths relative to `Tab.Path`, so `filepath.Join(t.Path, e.Name)` stays valid everywhere; `loadTab`
+re-checks the results instead of reading the directory, `navigate`/`goUp` leave the mode.
 Directory reads go through `listDirWait` (`slowdir.go`): the listing runs in a goroutine, and
 after `slowDirDelay` a "Reading directory…" box polls for Esc, which returns `errDirCancelled`
 so `navigate`/`loadTab` keep the previous state. `listDirFn` is the hook tests use to slow it.

@@ -49,7 +49,16 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   editors, pagers, shells, ssh) run outside instead, as does anything sent
   with `Shift+Enter`.
 - **Esc goes to the parent directory.** Every key is configurable.
-- **Everything-like search** (`Alt+F7` / `Ctrl+F`): an in-memory index of every
+- **Find file** (`Alt+F7`), FAR's dialog: one or several file masks
+  (`*.go;*.md`, a mask with a separator matches the relative path), text or
+  hex content with case sensitive, whole words and not-containing options,
+  folders as results, symbolic links followed, and the search area: from the
+  current folder, the current folder only, the selected folders or the
+  drive's root. `Esc` stops a long search and keeps what was found. The
+  results replace the panel's listing, named by their path below the
+  directory, so `F3`/`F4`/`F5`/`F8` and the rest work on them; `Esc` or
+  `..` returns to the directory.
+- **Everything-like search** (`Ctrl+F`): an in-memory index of every
   file name on all fixed drives by default (`search_roots`, where `"*"` means
   the fixed drives, without network, removable and subst ones, and other
   entries are directories), built in the

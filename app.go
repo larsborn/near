@@ -50,6 +50,7 @@ type App struct {
 	clipboard     string                // last text copied inside near
 	readClip      func() (string, bool) // system clipboard reader; nil in tests
 	tabPending    string                // command line text at an ambiguous Tab; a second Tab lists
+	lastFind      findSpec              // what the Find file dialog asked for last time
 	console       *Console              // output of commands run from the command line
 	running       *exec.Cmd
 	runStart      time.Time
@@ -446,6 +447,10 @@ func (a *App) other() *Tab   { return a.panels[1-a.active].Tab() }
 // loadTab re-reads a tab's directory with the slow-read box; giving up
 // keeps the previous listing.
 func (a *App) loadTab(t *Tab) {
+	if t.Find != nil {
+		a.applyFind(t)
+		return
+	}
 	entries, notes, err := a.listDirWait(t.Path)
 	if errors.Is(err, errDirCancelled) {
 		a.setStatus("Directory read abandoned; showing the previous listing")
@@ -485,6 +490,7 @@ func (a *App) navigate(t *Tab, path, cursorName string) error {
 		t.posMem[t.Path] = cur.Name
 	}
 	t.Path = path
+	t.Find = nil
 	t.Cursor, t.Top = 0, 0
 	t.Selected = map[string]bool{}
 	t.Apply(entries, notes, err)
@@ -523,6 +529,11 @@ func (a *App) enterCurrent() {
 
 func (a *App) goUp() {
 	t := a.tab()
+	if t.Find != nil {
+		// Leaving the search results shows the directory itself again.
+		a.leaveFind(t)
+		return
+	}
 	parent := filepath.Dir(t.Path)
 	if parent == t.Path {
 		a.showLocations()
@@ -802,6 +813,8 @@ func (a *App) doAction(action string) {
 		a.editNote()
 	case "search":
 		a.showSearch()
+	case "find_file":
+		a.showFindFile()
 	case "quick_search":
 		a.qsActive = true
 		a.qsText = a.qsText[:0]
@@ -921,7 +934,9 @@ func (a *App) showHelp() {
 		"Panels: * marks an entry with a note, @ a symbolic link.",
 		"Quick search: Alt+<character> (or Ctrl+S) jumps to a matching name in the panel;",
 		"              keep typing with or without Alt, Up/Down next/previous, Esc to leave.",
-		"Search dialog: words match the file name, a term with / matches the path,",
+		"Find file (Alt+F7): FAR's dialog; masks like *.go;*.md, text or hex content, the",
+		"               results replace the panel (Esc or .. returns to the directory).",
+		"Search dialog (Ctrl+F): words match the file name, a term with / matches the path,",
 		"               * and ? are wildcards. Enter opens, Ctrl+T opens in a new tab.",
 		"Mass rename: regex Find/Replace with $1 groups and {n} {name} {ext} {date}",
 		"             {parent} tokens; F4 edits the name list in your editor instead.",

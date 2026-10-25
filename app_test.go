@@ -361,7 +361,7 @@ func TestSearchIndex(t *testing.T) {
 	if a.index.Count() != 9 {
 		t.Fatalf("indexed %d, want 9", a.index.Count())
 	}
-	key(a, "Alt+F7")
+	key(a, "Ctrl+F")
 	typeText(a, "deep")
 	d := a.top().(*SearchDialog)
 	waitSearch(t, a)
