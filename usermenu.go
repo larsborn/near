@@ -53,9 +53,13 @@ func (a *App) saveMenus() error {
 	return os.WriteFile(a.menusFile(), buf.Bytes(), 0o644)
 }
 
-// menusChanged saves the menus, rebinds menu keys and reopens menu m with
-// the cursor on item index cursor.
-func (a *App) menusChanged(m *Menu, cursor int) {
+// Menus are referred to by name throughout: a.cfg.Menus is a slice that
+// appending a submenu reallocates, so a *Menu held across an edit would
+// point into a stale copy and the edit would be lost.
+
+// menusChanged saves the menus, rebinds menu keys and reopens the named
+// menu with the cursor on item index cursor.
+func (a *App) menusChanged(name string, cursor int) {
 	if err := a.saveMenus(); err != nil {
 		a.setErr(err)
 	}
@@ -64,6 +68,10 @@ func (a *App) menusChanged(m *Menu, cursor int) {
 		if _, ok := a.top().(*ListDialog); ok {
 			a.pop()
 		}
+	}
+	m := a.cfg.menu(name)
+	if m == nil {
+		return
 	}
 	d := a.openMenu(m)
 	for i, it := range d.Items {
@@ -74,7 +82,11 @@ func (a *App) menusChanged(m *Menu, cursor int) {
 }
 
 // userMenuKey handles the editing keys of a menu list.
-func (a *App) userMenuKey(m *Menu, d *ListDialog, ev *tcell.EventKey) bool {
+func (a *App) userMenuKey(name string, d *ListDialog, ev *tcell.EventKey) bool {
+	m := a.cfg.menu(name)
+	if m == nil {
+		return false
+	}
 	idx := -1
 	if d.Cursor >= 0 && d.Cursor < len(d.Items) {
 		if i, ok := d.Items[d.Cursor].Data.(int); ok {
@@ -83,26 +95,26 @@ func (a *App) userMenuKey(m *Menu, d *ListDialog, ev *tcell.EventKey) bool {
 	}
 	switch keyName(ev) {
 	case "Insert":
-		a.insertMenuItem(m, maxInt(idx, 0))
+		a.insertMenuItem(name, maxInt(idx, 0))
 	case "Delete":
 		if idx >= 0 {
-			a.deleteMenuItem(m, idx)
+			a.deleteMenuItem(name, idx)
 		}
 	case "F4":
 		if idx >= 0 {
-			a.editMenuItem(m, idx)
+			a.editMenuItem(name, idx)
 		}
 	case "Alt+F4":
-		a.editMenusFile(m)
+		a.editMenusFile(name)
 	case "Ctrl+Up":
 		if idx > 0 {
 			m.Items[idx], m.Items[idx-1] = m.Items[idx-1], m.Items[idx]
-			a.menusChanged(m, idx-1)
+			a.menusChanged(name, idx-1)
 		}
 	case "Ctrl+Down":
 		if idx >= 0 && idx < len(m.Items)-1 {
 			m.Items[idx], m.Items[idx+1] = m.Items[idx+1], m.Items[idx]
-			a.menusChanged(m, idx+1)
+			a.menusChanged(name, idx+1)
 		}
 	default:
 		return false
@@ -111,7 +123,7 @@ func (a *App) userMenuKey(m *Menu, d *ListDialog, ev *tcell.EventKey) bool {
 }
 
 // insertMenuItem asks what to insert and puts it at position at.
-func (a *App) insertMenuItem(m *Menu, at int) {
+func (a *App) insertMenuItem(name string, at int) {
 	a.confirm("User menu", []string{"Do you wish to insert a new command or a new menu?"},
 		[]string{"Insert command", "Insert menu"}, func(r int) {
 			if r < 0 {
@@ -120,11 +132,15 @@ func (a *App) insertMenuItem(m *Menu, at int) {
 			submenu := r == 1
 			a.menuItemDialog(MenuItem{}, submenu, func(it MenuItem) {
 				if submenu {
-					it.Submenu = a.newSubmenu(it.Title)
+					it.Submenu = a.newSubmenu(it.Title) // appends to a.cfg.Menus: resolve m after this
+				}
+				m := a.cfg.menu(name)
+				if m == nil {
+					return
 				}
 				at = clampInt(at, 0, len(m.Items))
 				m.Items = append(m.Items[:at], append([]MenuItem{it}, m.Items[at:]...)...)
-				a.menusChanged(m, at)
+				a.menusChanged(name, at)
 			})
 		})
 }
@@ -142,7 +158,11 @@ func (a *App) newSubmenu(title string) string {
 	return name
 }
 
-func (a *App) deleteMenuItem(m *Menu, idx int) {
+func (a *App) deleteMenuItem(name string, idx int) {
+	m := a.cfg.menu(name)
+	if m == nil || idx >= len(m.Items) {
+		return
+	}
 	it := m.Items[idx]
 	what := fmt.Sprintf("Delete menu item %q?", it.Title)
 	if it.Submenu != "" {
@@ -155,7 +175,12 @@ func (a *App) deleteMenuItem(m *Menu, idx int) {
 		if r != 0 {
 			return
 		}
+		m := a.cfg.menu(name)
+		if m == nil || idx >= len(m.Items) {
+			return
+		}
 		m.Items = append(m.Items[:idx], m.Items[idx+1:]...)
+		left := len(m.Items)
 		if it.Submenu != "" && !a.menuReferenced(it.Submenu) {
 			for i := range a.cfg.Menus {
 				if strings.EqualFold(a.cfg.Menus[i].Name, it.Submenu) {
@@ -164,7 +189,7 @@ func (a *App) deleteMenuItem(m *Menu, idx int) {
 				}
 			}
 		}
-		a.menusChanged(m, clampInt(idx, 0, len(m.Items)-1))
+		a.menusChanged(name, clampInt(idx, 0, left-1))
 	})
 }
 
@@ -180,7 +205,11 @@ func (a *App) menuReferenced(name string) bool {
 	return false
 }
 
-func (a *App) editMenuItem(m *Menu, idx int) {
+func (a *App) editMenuItem(name string, idx int) {
+	m := a.cfg.menu(name)
+	if m == nil || idx >= len(m.Items) {
+		return
+	}
 	it := m.Items[idx]
 	a.menuItemDialog(it, it.Submenu != "", func(edited MenuItem) {
 		if it.Submenu != "" {
@@ -190,8 +219,12 @@ func (a *App) editMenuItem(m *Menu, idx int) {
 				edited.Submenu = sub.Name
 			}
 		}
+		m := a.cfg.menu(name)
+		if m == nil || idx >= len(m.Items) {
+			return
+		}
 		m.Items[idx] = edited
-		a.menusChanged(m, idx)
+		a.menusChanged(name, idx)
 	})
 }
 
@@ -217,12 +250,11 @@ func (a *App) renameSubmenu(old, title string) string {
 
 // editMenusFile opens menus.toml in the editor and reloads the menus when
 // the editor closes.
-func (a *App) editMenusFile(m *Menu) {
+func (a *App) editMenusFile(name string) {
 	if err := a.saveMenus(); err != nil {
 		a.setErr(err)
 		return
 	}
-	name := m.Name
 	if _, ok := a.top().(*ListDialog); ok {
 		a.pop()
 	}

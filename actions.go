@@ -377,7 +377,8 @@ func (a *App) openMenu(m *Menu) *ListDialog {
 	})
 	d.Menu = true
 	d.Hint = "Ins Del F4 Alt+F4 Ctrl+Up Ctrl+Down"
-	d.OnKey = func(a *App, d *ListDialog, ev *tcell.EventKey) bool { return a.userMenuKey(m, d, ev) }
+	name := m.Name // by name: editing may reallocate a.cfg.Menus, making m stale
+	d.OnKey = func(a *App, d *ListDialog, ev *tcell.EventKey) bool { return a.userMenuKey(name, d, ev) }
 	return d
 }
 

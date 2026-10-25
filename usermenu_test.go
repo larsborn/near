@@ -102,6 +102,28 @@ func TestUserMenuEditing(t *testing.T) {
 	if m.Items[0].Submenu != "Extras" || a.cfg.menu("Extras") == nil {
 		t.Fatalf("submenu not created: %+v", m.Items[0])
 	}
+	// Creating the submenu grew a.cfg.Menus; later edits must still land in
+	// the real menu and be persisted (a stale *Menu once lost them).
+	key(a, "Insert")
+	key(a, "Enter")
+	typeText(a, "y")
+	key(a, "Tab")
+	typeText(a, "After submenu")
+	key(a, "Tab")
+	typeText(a, "echo y")
+	key(a, "Ctrl+Enter")
+	m = a.cfg.menu("Quick launch")
+	if m.Items[0].Title != "After submenu" || m.Items[1].Submenu != "Extras" {
+		t.Fatalf("items after submenu creation: %+v", m.Items[:2])
+	}
+	cfg3, err := loadConfig(a.cfg.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q := cfg3.menu("Quick launch"); q.Items[0].Title != "After submenu" || q.Items[1].Submenu != "Extras" || cfg3.menu("Extras") == nil {
+		t.Fatalf("not persisted: %+v", q.Items[:2])
+	}
+	key(a, "Down")
 	key(a, "Enter") // opens the (empty) submenu
 	if sub, ok := a.top().(*ListDialog); !ok || sub.Title != "Extras" {
 		t.Fatalf("Enter should open the submenu, got %T", a.top())
