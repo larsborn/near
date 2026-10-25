@@ -49,8 +49,9 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   with `Shift+Enter`.
 - **Esc goes to the parent directory.** Every key is configurable.
 - **Everything-like search** (`Alt+F7` / `Ctrl+F`): an in-memory index of every
-  file name below `search_roots`, built in the background, cached between runs
-  and kept current by a filesystem watcher. Words match the name, a term with
+  file name on all fixed drives by default (`search_roots`, where `"*"` means
+  the fixed drives and other entries are directories), built in the
+  background, cached between runs and kept current by a filesystem watcher. Words match the name, a term with
   `/` matches the path, `*` and `?` are wildcards. `Enter` jumps to the file,
   `Ctrl+T` opens it in a new tab.
 - **Quick search by holding Alt**: `Alt+p`, `Alt+h`, `Alt+o` moves the cursor to
@@ -247,7 +248,7 @@ work on the command line.
 ### Search
 
 ```toml
-search_roots = ["~", "/srv/data"]
+search_roots = ["*"]           # "*" = every fixed drive; or directories such as ["~", "/srv/data"]
 search_exclude = [".git", "node_modules", "/proc", "/sys"]  # name anywhere, or an exact path
 search_max_results = 500
 search_index_on_start = true

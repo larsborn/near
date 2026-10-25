@@ -68,11 +68,7 @@ func newIndex() *Index {
 func (ix *Index) Configure(cfg *Config, screen tcell.Screen) {
 	ix.mu.Lock()
 	defer ix.mu.Unlock()
-	ix.roots = ix.roots[:0]
-	for _, r := range cfg.SearchRoots {
-		ix.roots = append(ix.roots, expandPath(r))
-	}
-	ix.roots = outerRoots(ix.roots)
+	ix.roots = expandRoots(cfg.SearchRoots)
 	ix.exclude = newExcludeSet(cfg.SearchExclude)
 	ix.cacheFile = filepath.Join(cfg.dir, "index.gob")
 	ix.screen = screen
@@ -822,6 +818,21 @@ func (ix *Index) addTreeLocked(root string) ([]string, []flatAdd) {
 		return nil
 	})
 	return added, adds
+}
+
+// expandRoots turns the configured search_roots into directories: "*"
+// stands for every fixed drive, "~" and environment variables are expanded,
+// and roots inside other roots are dropped.
+func expandRoots(roots []string) []string {
+	var out []string
+	for _, r := range roots {
+		if strings.TrimSpace(r) == "*" {
+			out = append(out, fixedDrives()...)
+			continue
+		}
+		out = append(out, expandPath(r))
+	}
+	return outerRoots(out)
 }
 
 // outerRoots drops roots that lie inside another root (and duplicates), so

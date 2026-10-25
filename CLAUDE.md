@@ -122,7 +122,8 @@ callers (mass rename's F4 flow) must not assume synchronous completion.
 
 **Search index** (`search.go`, `watch*.go`). `Index.dirs` is `map[directory][]names` (every
 directory is a key), chosen so watcher events are cheap to apply. Build walks `search_roots`
-in a goroutine; results are announced by posting `EventIndexDone`/`EventIndexChanged` to the
+in a goroutine (`expandRoots`: `"*"` = every fixed drive from the platform `fixedDrives` in
+`drives_*.go`, nested roots dropped); results are announced by posting `EventIndexDone`/`EventIndexChanged` to the
 tcell screen (the loop only redraws). Watch backends implement `fsWatcher`: `watch_windows.go`
 is a native recursive `ReadDirectoryChangesW` (one handle per root); `watch.go` wraps fsnotify
 with one watch per directory, capped by `search_watch_max_dirs`. Events are batched, a create is

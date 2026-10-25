@@ -291,11 +291,14 @@ date_format = "2006-01-02"         # Go time layout for the Date column
 time_format = "15:04"              # ... and the Time column
 notes_file = ".near-notes"         # per-directory hidden notes file (JSON)
 
-# Everything-like search: directories to index and what to skip. A plain
-# name skips every directory of that name; an entry with a path separator
-# skips that exact directory. The index is rebuilt in the background on
-# start (see search_index_on_start) and with Ctrl+R in the search dialog.
-search_roots = ["~"]   # add whole drives for Everything-like coverage, e.g. ["~", "D:\\", "E:\\Data"]
+# Everything-like search: directories to index and what to skip. "*" stands
+# for every fixed drive (network and removable ones are left out); any other
+# entry is a directory, e.g. ["~", "D:\\", "/srv/data"]. In search_exclude a
+# plain name skips every directory of that name; an entry with a path
+# separator skips that exact directory. The index is rebuilt in the
+# background on start (see search_index_on_start) and with Ctrl+R in the
+# search dialog.
+search_roots = ["*"]
 search_exclude = [".git", "node_modules", "__pycache__", ".cache", "/proc", "/sys", "/dev", "/run"]
 search_max_results = 500
 search_index_on_start = true

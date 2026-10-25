@@ -11,6 +11,11 @@ Latency is solved: every query on that index takes 1.5–45 ms (flat buffer scan
 10,000). Remaining concern is memory: roughly 600 MB for the map plus ~200 MB for the flat
 view (124 MB names buffer, 60 MB of int32 arrays, the directory position map).
 
+Since 2026-10-25 the default `search_roots` is `["*"]`, every fixed drive (`drives_*.go`,
+`expandRoots` in `search.go`), so a typical Windows install indexes the whole of C: rather
+than the home directory. That makes the footprint the default experience, not a power-user
+choice: measure it with all of C: indexed, not just the home directory.
+
 ## Ideas
 - Drop the per-directory `[]string` slices in favour of the flat view as the primary store
   (the map is now only needed for watcher updates and result verification).
