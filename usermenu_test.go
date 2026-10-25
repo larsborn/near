@@ -130,6 +130,21 @@ func TestUserMenuEditing(t *testing.T) {
 	}
 }
 
+// A plain menu item runs in the console view: no pause afterwards, the
+// panels come back and the output stays visible under them.
+func TestMenuItemRunsInConsole(t *testing.T) {
+	a, _ := testApp(t)
+	a.draw()
+	a.runMenuItem(MenuItem{Title: "Say", Command: "echo menu-output-here"})
+	waitCommand(t, a)
+	if a.hideAll {
+		t.Fatal("panels should be back after the command")
+	}
+	if s := screenText(a); !strings.Contains(s, "menu-output-here") || !strings.Contains(s, "║") {
+		t.Fatalf("output should stay visible under the panels:\n%s", s)
+	}
+}
+
 // A command naming a file runs once per selected entry; FAR's symbols are
 // inserted as they are, several lines run one after another.
 func TestMenuCommandRunsPerSelection(t *testing.T) {

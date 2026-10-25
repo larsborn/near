@@ -439,7 +439,10 @@ path = "~"
 #              {dir}    current directory          {other}  other panel's directory
 #              {name}   current name without extension  {ext} extension (no dot)
 #   submenu  name of another menu to open instead of running a command
-#   nowait   do not wait for a key press after the command finishes
+#   nowait   hand the terminal to the command (shells, editors, other interactive
+#            programs) and come back without a pause when it ends; without it the
+#            output is captured into the console view and stays visible under the
+#            panels, like a command typed on the command line
 #   detach   start in the background without leaving the file manager (GUI apps)
 #   confirm  ask before running
 #   cwd      working directory (default: current directory)

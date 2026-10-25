@@ -262,7 +262,10 @@ Placeholders in `command` and `cwd` are quoted for the shell:
 | `{dir}` / `{other}`   | this panel's / the other panel's directory                   |
 | `{name}` / `{ext}`    | current name without extension / extension without dot       |
 
-Item flags: `nowait` (no "press Enter" pause), `detach` (background, for GUI
+Items run like commands typed on the command line: output captured into the
+console view, panels back when the command ends with the output kept under
+them. Item flags: `nowait` (hand the terminal to an interactive program, no
+"press Enter" pause afterwards), `detach` (background, for GUI
 apps), `confirm` (ask first), `cwd` (working directory). The same placeholders
 work on the command line.
 

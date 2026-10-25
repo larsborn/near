@@ -550,7 +550,18 @@ func (a *App) runMenuItem(it MenuItem) {
 			if it.Cwd != "" {
 				cwd = a.expandPlaceholders(it.Cwd)
 			}
-			a.runShell(line, cwd, !it.NoWait, it.Detach)
+			switch {
+			case it.Detach:
+				a.runShell(line, cwd, false, true)
+			case it.NoWait:
+				a.runShell(line, cwd, false, false) // hands the terminal over, no pause afterwards
+			case a.isInteractive(line):
+				a.runShell(line, cwd, a.cfg.CommandWait, false)
+			default:
+				// Like a command typed on the command line: output into the
+				// console view, panels back when it ends, output kept.
+				a.queueCommands([]string{line}, cwd)
+			}
 		}
 		if it.Confirm {
 			a.confirm(it.Title, []string{fitLeft(line, a.w-10)}, []string{"Run", "Cancel"}, func(r int) {
