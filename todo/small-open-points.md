@@ -3,8 +3,6 @@
 One file for the minor items; promote any of them to its own file if it grows.
 
 ## Decisions awaiting the user
-- **Release `v0.0.2`**: everything since `v0.0.1` is on `main`; tag and push when wanted
-  (`git tag -a v0.0.2 -m "near 0.0.2" && git push --tags`, the release workflow does the rest).
 - **Alt+digit**: `Alt+1`..`Alt+9` switch tabs, so a quick search cannot start with a digit.
   Either accept, or drop the digit tab keys (then Alt+digit searches).
 - **Editor: typing over a selection replaces it** (modern behaviour). FAR by default keeps the
