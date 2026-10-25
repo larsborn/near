@@ -491,6 +491,7 @@ func (a *App) commandDone(err error) {
 		a.hideAll = false
 		a.restorePanels = false
 	}
+	a.ensureConsoleBand()
 	a.reloadAll()
 }
 

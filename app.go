@@ -67,16 +67,35 @@ func (a *App) panelVisible(i int) bool { return !a.hideAll && !a.hidden[i] }
 const minPanelHeight = panelChrome + 1
 
 // consoleBand is the number of rows under the panels that show the tail of
-// the console once a command has produced output.
+// the console: whatever the panels leave free once a command has produced
+// output. ensureConsoleBand opens console_rows when output arrives; Ctrl+Up
+// and Ctrl+Down then trade rows between the panels and the band.
 func (a *App) consoleBand() int {
-	if a.cfg.ConsoleRows <= 0 || !a.console.HasContent() {
+	if !a.console.HasContent() {
 		return 0
 	}
-	return clampInt(a.cfg.ConsoleRows, 0, maxInt(0, a.h-bottomRows-minPanelHeight))
+	tallest := 0
+	for i := range a.panels {
+		if a.panelVisible(i) && a.panelHeight(i) > tallest {
+			tallest = a.panelHeight(i)
+		}
+	}
+	return maxInt(0, a.panelArea()-tallest)
+}
+
+// ensureConsoleBand shortens the panels so that at least console_rows of
+// output are visible under them (never making them taller).
+func (a *App) ensureConsoleBand() {
+	rows := clampInt(a.cfg.ConsoleRows, 0, maxInt(0, a.panelArea()-minPanelHeight))
+	for i := range a.heights {
+		if a.heights[i] < rows {
+			a.heights[i] = rows
+		}
+	}
 }
 
 // panelArea is the height available to the panels.
-func (a *App) panelArea() int { return a.h - bottomRows - a.consoleBand() }
+func (a *App) panelArea() int { return a.h - bottomRows }
 
 // panelHeight returns the drawn height of panel i.
 func (a *App) panelHeight(i int) int {

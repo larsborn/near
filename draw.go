@@ -60,7 +60,7 @@ func (a *App) drawAll() {
 		}
 		// The tail of the last command's output stays visible under the panels.
 		if band := a.consoleBand(); band > 0 {
-			a.drawConsole(a.panelArea(), band, false)
+			a.drawConsole(a.panelArea()-band, band, false)
 		}
 	}
 	if !consoleOnly {

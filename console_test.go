@@ -78,6 +78,22 @@ func TestConsoleRunAndStay(t *testing.T) {
 	if band := a.consoleBand(); band != a.cfg.ConsoleRows || a.panelHeight(0) != a.h-bottomRows-band {
 		t.Fatalf("band=%d panel height=%d", band, a.panelHeight(0))
 	}
+	// Ctrl+Down reclaims band rows for the panels; Ctrl+Up gives them back.
+	key(a, "Ctrl+Down")
+	key(a, "Ctrl+Down")
+	if band := a.consoleBand(); band != a.cfg.ConsoleRows-2 || a.panelHeight(0) != a.h-bottomRows-band {
+		t.Fatalf("after Ctrl+Down: band=%d panel height=%d", band, a.panelHeight(0))
+	}
+	for i := 0; i < 10; i++ {
+		key(a, "Ctrl+Down")
+	}
+	if a.consoleBand() != 0 || a.panelHeight(0) != a.h-bottomRows {
+		t.Fatalf("panels should be able to take the whole height: band=%d", a.consoleBand())
+	}
+	key(a, "Ctrl+Up")
+	if a.consoleBand() != 1 {
+		t.Fatalf("Ctrl+Up should reopen the band: %d", a.consoleBand())
+	}
 	// ... and the output waits behind Ctrl+O, with no "press Enter" pause anywhere.
 	key(a, "Ctrl+O")
 	txt := screenText(a)
