@@ -10,6 +10,7 @@ import (
 
 func TestTransferQueueViewAndHistory(t *testing.T) {
 	a, data := testApp(t)
+	paceCopies(t)
 	other := filepath.Join(filepath.Dir(data), "dest")
 	os.MkdirAll(other, 0o755)
 	big := bytes.Repeat([]byte{3}, 8*copyChunk)

@@ -49,8 +49,18 @@ func TestTransferForegroundBox(t *testing.T) {
 	}
 }
 
+// paceCopies slows every copied chunk down so that transfers are still
+// running when a test looks at the queue (CI runners copy 24 MB in a few
+// milliseconds).
+func paceCopies(t *testing.T) {
+	t.Helper()
+	copyPace = func() { time.Sleep(15 * time.Millisecond) }
+	t.Cleanup(func() { copyPace = nil })
+}
+
 func TestTransfersRunConsecutively(t *testing.T) {
 	a, data := testApp(t)
+	paceCopies(t)
 	other := filepath.Join(filepath.Dir(data), "dest")
 	os.MkdirAll(other, 0o755)
 	big := bytes.Repeat([]byte{1}, 6*copyChunk)
@@ -108,6 +118,7 @@ func TestTransfersRunConsecutively(t *testing.T) {
 
 func TestTransferSendToBackgroundAndCancel(t *testing.T) {
 	a, data := testApp(t)
+	paceCopies(t)
 	other := filepath.Join(filepath.Dir(data), "dest")
 	os.MkdirAll(other, 0o755)
 	os.WriteFile(filepath.Join(data, "huge.bin"), bytes.Repeat([]byte{2}, 40*copyChunk), 0o644)

@@ -20,6 +20,10 @@ type progressFn func(item string, done, total int64) bool
 // cancellation checked after every block.
 const copyChunk = 4 << 20
 
+// copyPace, when set, is called after every chunk; tests use it to make
+// copies take a predictable time so queue states can be observed.
+var copyPace func()
+
 func isSubPath(parent, child string) bool {
 	rel, err := filepath.Rel(parent, child)
 	if err != nil {
@@ -133,6 +137,9 @@ func copyFile(src, dst string, info os.FileInfo, keepTimes bool, progress progre
 				return werr
 			}
 			done += int64(n)
+			if copyPace != nil {
+				copyPace()
+			}
 			if progress != nil && !progress(src, done, total) {
 				out.Close()
 				os.Remove(dst)
