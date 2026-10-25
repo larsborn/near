@@ -363,6 +363,7 @@ func TestSearchIndex(t *testing.T) {
 	key(a, "Alt+F7")
 	typeText(a, "deep")
 	d := a.top().(*SearchDialog)
+	waitSearch(t, a)
 	if len(d.results) != 1 {
 		t.Fatalf("results = %v", d.results)
 	}
@@ -372,11 +373,13 @@ func TestSearchIndex(t *testing.T) {
 	}
 	key(a, "Ctrl+F")
 	typeText(a, "file*.txt")
+	waitSearch(t, a)
 	if d := a.top().(*SearchDialog); len(d.results) != 3 {
 		t.Fatalf("glob results = %v", d.results)
 	}
 	key(a, "Ctrl+U")
 	typeText(a, "inner/")
+	waitSearch(t, a)
 	if d := a.top().(*SearchDialog); len(d.results) != 1 {
 		t.Fatalf("path results = %v", d.results)
 	}
@@ -1276,4 +1279,18 @@ func TestEditNewAndExternalFlag(t *testing.T) {
 	if a.tab().Current().Name != "fresh.md" {
 		t.Fatal("cursor should be on the new file")
 	}
+}
+
+// waitSearch pumps events until the search dialog's results are current.
+func waitSearch(t *testing.T, a *App) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		pump(a)
+		if d, ok := a.top().(*SearchDialog); ok && !d.busy && !d.pending && d.last == d.edit.String() {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("search did not settle")
 }

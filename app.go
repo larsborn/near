@@ -289,6 +289,12 @@ func (a *App) handleEvent(ev tcell.Event) {
 		a.transferDone(ev.t)
 	case *tcell.EventMouse:
 		a.handleMouse(ev)
+	case *EventSearchResult:
+		if len(a.dialogs) > 0 {
+			if d, ok := a.top().(*SearchDialog); ok {
+				d.apply(a, ev)
+			}
+		}
 	}
 }
 

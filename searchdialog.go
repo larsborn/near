@@ -10,6 +10,8 @@ import (
 )
 
 // SearchDialog is the Everything-like file name search over the index.
+// Searches run in a goroutine so typing is never held up; each result
+// carries the generation of the query it answers and stale ones are dropped.
 type SearchDialog struct {
 	edit    *LineEdit
 	results []string
@@ -17,9 +19,22 @@ type SearchDialog struct {
 	capped  bool
 	cursor  int
 	top     int
-	last    string
-	dirty   bool // query changed, search pending
-	indexN  int  // index size when the results were computed
+	last    string // query the shown results belong to
+	indexN  int    // index size when the results were computed
+	gen     int    // generation of the latest query
+	busy    bool   // a search is running
+	pending bool   // the query changed while a search was running
+}
+
+// EventSearchResult delivers results computed in the background.
+type EventSearchResult struct {
+	tcell.EventTime
+	gen     int
+	query   string
+	results []string
+	total   int
+	capped  bool
+	indexN  int
 }
 
 func (a *App) showSearch() {
@@ -30,15 +45,42 @@ func (a *App) showSearch() {
 	a.push(d)
 }
 
+// update starts a search for the current text unless one is running, in
+// which case it runs again as soon as that one finishes.
 func (d *SearchDialog) update(a *App) {
-	q := d.edit.String()
-	if q == d.last {
+	if d.busy {
+		d.pending = true
 		return
 	}
-	d.last = q
-	d.indexN = a.index.Count()
-	d.results, d.total, d.capped = a.index.Search(q, a.cfg.SearchMaxResults)
-	d.cursor, d.top = 0, 0
+	q := d.edit.String()
+	if q == d.last && a.index.Count() == d.indexN {
+		return
+	}
+	d.busy = true
+	d.gen++
+	gen, max, screen := d.gen, a.cfg.SearchMaxResults, a.screen
+	n := a.index.Count()
+	ix := a.index
+	go func() {
+		out, total, capped := ix.Search(q, max)
+		ev := &EventSearchResult{gen: gen, query: q, results: out, total: total, capped: capped, indexN: n}
+		ev.SetEventNow()
+		_ = screen.PostEvent(ev)
+	}()
+}
+
+// apply takes a background result; only the latest generation counts.
+func (d *SearchDialog) apply(a *App, ev *EventSearchResult) {
+	d.busy = false
+	if ev.gen == d.gen {
+		d.results, d.total, d.capped = ev.results, ev.total, ev.capped
+		d.last, d.indexN = ev.query, ev.indexN
+		d.cursor, d.top = 0, 0
+	}
+	if d.pending || ev.gen != d.gen || d.edit.String() != d.last {
+		d.pending = false
+		d.update(a)
+	}
 }
 
 func (d *SearchDialog) rows(a *App) int { return maxInt(1, a.h-8) }
@@ -88,23 +130,15 @@ func (d *SearchDialog) HandleKey(a *App, ev *tcell.EventKey) {
 		d.cursor = maxInt(0, len(d.results)-1)
 	default:
 		if d.edit.HandleKey(ev, a) {
-			d.dirty = true
+			d.update(a)
 		}
 	}
 }
 
 func (d *SearchDialog) Draw(a *App) {
 	th := a.theme
-	// Searching a large index takes a noticeable time, so a pending search
-	// waits until no further key presses are queued: typing fast only
-	// searches once, for the final text.
-	if d.dirty && !a.screen.HasPendingEvent() {
-		d.dirty = false
-		d.update(a)
-	}
 	// Results may have changed because the index finished building.
 	if d.last != "" && a.index.Count() != d.indexN {
-		d.last = ""
 		d.update(a)
 	}
 	rows := d.rows(a)
@@ -156,6 +190,8 @@ func (d *SearchDialog) Draw(a *App) {
 		status = fmt.Sprintf("indexing… %s names so far", groupDigits(a.index.progress.Load()))
 	case a.index.Count() == 0:
 		status = "index is empty, check search_roots in " + a.cfg.path
+	case d.last == "" && d.busy:
+		status = "searching…"
 	case d.last == "":
 		status = fmt.Sprintf("%s names, built %s, %s", groupDigits(int64(a.index.Count())), a.index.BuiltAt().Format("15:04"), a.index.WatchStatus())
 	case d.capped:

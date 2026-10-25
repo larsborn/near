@@ -295,7 +295,7 @@ notes_file = ".near-notes"         # per-directory hidden notes file (JSON)
 # name skips every directory of that name; an entry with a path separator
 # skips that exact directory. The index is rebuilt in the background on
 # start (see search_index_on_start) and with Ctrl+R in the search dialog.
-search_roots = ["~"]
+search_roots = ["~"]   # add whole drives for Everything-like coverage, e.g. ["~", "D:\\", "E:\\Data"]
 search_exclude = [".git", "node_modules", "__pycache__", ".cache", "/proc", "/sys", "/dev", "/run"]
 search_max_results = 500
 search_index_on_start = true
