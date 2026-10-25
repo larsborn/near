@@ -96,10 +96,10 @@ func (a *App) runShell(cmdline, cwd string, wait, detach bool) {
 	fmt.Printf("$ %s\n", cmdline)
 	err := cmd.Run()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "\n[near] %v\n", err)
+		fmt.Fprintf(os.Stderr, "\n[NEAR] %v\n", err)
 	}
 	if wait || err != nil {
-		fmt.Print("\n[near] Press Enter to return ")
+		fmt.Print("\n[NEAR] Press Enter to return ")
 		_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
 	}
 	if err := a.screen.Resume(); err != nil {

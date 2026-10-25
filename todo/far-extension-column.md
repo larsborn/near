@@ -3,7 +3,7 @@
 ## What
 In the user's FAR configuration (screenshot compared on 2026-10-23) the Name column shows the
 base name on the left and the extension right-aligned in a sub-column just before Size
-(`args    c`, `README   md`). near shows `args.c` as one string.
+(`args    c`, `README   md`). NEAR shows `args.c` as one string.
 
 ## Why it matters
 It was the last visible difference when matching the FAR panel look; the user did not ask for

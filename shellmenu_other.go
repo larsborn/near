@@ -15,7 +15,7 @@ import (
 
 // desktopMenu is the context menu outside Windows: "Open with" entries from
 // the desktop's application registrations (Linux, BSD) or Finder actions
-// (macOS). near's own actions are appended by the caller.
+// (macOS). NEAR's own actions are appended by the caller.
 type desktopMenu struct {
 	root []menuEntry
 }

@@ -641,11 +641,21 @@ func (d *ListDialog) Draw(a *App) {
 	if d.Cursor >= d.Top+rows {
 		d.Top = d.Cursor - rows + 1
 	}
+	// FAR menus show the hot key in a column of its own before the label.
+	hotCol := 0
+	if d.Menu {
+		for _, it := range d.Items {
+			if it.Hotkey != 0 {
+				hotCol = 4
+				break
+			}
+		}
+	}
 	w := d.Width
 	if w == 0 {
 		w = runewidth.StringWidth(d.Title) + 6
 		for _, it := range d.Items {
-			lw := runewidth.StringWidth(it.Label) + 6
+			lw := runewidth.StringWidth(it.Label) + 6 + hotCol
 			if it.Right != "" {
 				lw += runewidth.StringWidth(it.Right) + 2
 			}
@@ -692,14 +702,21 @@ func (d *ListDialog) Draw(a *App) {
 			hot = cursorSt.Bold(true)
 		}
 		a.fill(x+1, ry, w-2, 1, st)
-		label := fitLeft(it.Label, w-4)
+		label := fitLeft(it.Label, w-4-hotCol)
 		if it.Right != "" {
 			rw := runewidth.StringWidth(it.Right)
 			a.print(x+w-2-rw, ry, rw, st, it.Right)
-			label = fitLeft(it.Label, w-6-rw)
+			label = fitLeft(it.Label, w-6-rw-hotCol)
 		}
 		cx := x + 2
 		drawn := false
+		if hotCol > 0 {
+			if it.Hotkey != 0 {
+				a.print(cx, ry, 1, hot, string(it.Hotkey))
+			}
+			cx += hotCol
+			drawn = true // the label itself is not highlighted
+		}
 		for _, r := range label {
 			s := st
 			if !drawn && it.Hotkey != 0 && unicode.ToLower(r) == unicode.ToLower(it.Hotkey) {

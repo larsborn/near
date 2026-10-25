@@ -4,15 +4,15 @@
 Shift+F10, the keyboard Menu key and right-click open a context menu (`contextmenu.go`).
 On Windows it is Explorer's own menu via `IContextMenu` (`shellmenu_windows.go`); elsewhere
 `shellmenu_other.go` builds "Open with <app>" entries from `.desktop` files (Linux/BSD) or
-Finder actions (macOS). near's own actions are appended after a separator.
+Finder actions (macOS). NEAR's own actions are appended after a separator.
 
 ## Open points
 - **Windows, verbs that show windows**: `InvokeCommand` is called with `hwnd = 0`.
   "Properties", "Open with…", "Send to → Mail recipient", "Share" and the 7-Zip dialogs
-  were not all tried. Some verbs may require a window handle or a message loop; near has no
+  were not all tried. Some verbs may require a window handle or a message loop; NEAR has no
   HWND (console) — `GetConsoleWindow()` could be passed as `hwnd` in `cmInvokeCommandInfoEx`.
 - **Windows, Menu key**: the console never reports VK_APPS, so `menukey_windows.go` polls
-  `GetAsyncKeyState` every 40 ms while near's console window is in the foreground. Verify it
+  `GetAsyncKeyState` every 40 ms while NEAR's console window is in the foreground. Verify it
   fires exactly once per press under Windows Terminal and conhost and does not trigger when
   another window has the focus.
 - **Linux**: `desktopAppsFor` parses `~/.local/share/applications`, `$XDG_DATA_DIRS` and

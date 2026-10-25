@@ -1,4 +1,4 @@
-// near is a keyboard-driven dual pane file manager for the terminal.
+// NEAR is a keyboard-driven dual pane file manager for the terminal.
 package main
 
 import (
@@ -31,7 +31,7 @@ func main() {
 	}
 	cfg, err := loadConfig(*cfgPath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "near:", err)
+		fmt.Fprintln(os.Stderr, "NEAR:", err)
 		os.Exit(1)
 	}
 	if *reindex {
@@ -39,11 +39,11 @@ func main() {
 	}
 	screen, err := tcell.NewScreen()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "near:", err)
+		fmt.Fprintln(os.Stderr, "NEAR:", err)
 		os.Exit(1)
 	}
 	if err := screen.Init(); err != nil {
-		fmt.Fprintln(os.Stderr, "near:", err)
+		fmt.Fprintln(os.Stderr, "NEAR:", err)
 		os.Exit(1)
 	}
 	app := newApp(cfg, screen)

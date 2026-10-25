@@ -44,7 +44,7 @@ func applyHelpLines(w int) []string {
 	}
 	last := applyTokens[len(applyTokens)-1]
 	lines = append(lines, last[0]+"  "+last[1])
-	return append(lines, "Symbols are inserted as they are (quote them: \"!.!\"); near's {file} {path} {dir} {other} are quoted.")
+	return append(lines, "Symbols are inserted as they are (quote them: \"!.!\"); NEAR's {file} {path} {dir} {other} are quoted.")
 }
 
 // ApplyDialog asks for the command template.

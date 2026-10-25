@@ -39,7 +39,7 @@ func loadMenusFile(path string) ([]Menu, error) {
 // saveMenus writes the current menus to menus.toml.
 func (a *App) saveMenus() error {
 	var buf bytes.Buffer
-	buf.WriteString("# Menus edited inside near (F2, then Ins / Del / F4 / Alt+F4 / Ctrl+Up / Ctrl+Down).\n")
+	buf.WriteString("# Menus edited inside NEAR (F2, then Ins / Del / F4 / Alt+F4 / Ctrl+Up / Ctrl+Down).\n")
 	buf.WriteString("# While this file exists the [[menus]] of config.toml are ignored.\n\n")
 	doc := struct {
 		Menus []Menu `toml:"menus"`
@@ -420,7 +420,7 @@ func (d *MenuItemDialog) Draw(a *App) {
 
 // usesFileSymbols reports whether a command refers to a single file, so
 // that it must be run once per selected entry: FAR's !, !.!, !~, !` or
-// near's {file} {path} {name} {ext}.
+// NEAR's {file} {path} {name} {ext}.
 func usesFileSymbols(cmd string) bool {
 	for _, p := range []string{"{file}", "{path}", "{name}", "{ext}"} {
 		if strings.Contains(cmd, p) {

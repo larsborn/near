@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// setClipboard stores text in near's own clipboard and pushes it to the
+// setClipboard stores text in NEAR's own clipboard and pushes it to the
 // system clipboard through the terminal (OSC 52) and, where one exists, a
 // native helper program.
 func (a *App) setClipboard(text string) {
@@ -39,7 +39,7 @@ func clipboardWriter() *exec.Cmd {
 }
 
 // pasteText returns what Ctrl+V should insert: the system clipboard when it
-// can be read and holds text, otherwise near's own clipboard.
+// can be read and holds text, otherwise NEAR's own clipboard.
 func (a *App) pasteText() string {
 	if a.readClip != nil {
 		if s, ok := a.readClip(); ok && s != "" {

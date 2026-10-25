@@ -11,12 +11,12 @@ import (
 )
 
 // The Windows console never reports the keyboard's Menu (Apps) key, so a
-// small watcher polls its state while near's terminal window is in the
+// small watcher polls its state while NEAR's terminal window is in the
 // foreground and injects the key event tcell would have produced. The
 // terminal window may belong to conhost (cmd.exe window) or to a terminal
-// such as Windows Terminal that hosts near through a pseudo-console; both
-// are recognised by their process being an ancestor of near or the owner
-// of near's console window.
+// such as Windows Terminal that hosts NEAR through a pseudo-console; both
+// are recognised by their process being an ancestor of NEAR or the owner
+// of NEAR's console window.
 
 var (
 	getAsyncKeyState         = user32.NewProc("GetAsyncKeyState")
@@ -43,7 +43,7 @@ func startMenuKeyWatcher(s tcell.Screen) {
 	}()
 }
 
-// hostProcessIDs returns near's own pid, its ancestors (the shell and the
+// hostProcessIDs returns NEAR's own pid, its ancestors (the shell and the
 // terminal that started it) and the owner of its console window.
 func hostProcessIDs() map[uint32]bool {
 	ids := map[uint32]bool{windows.GetCurrentProcessId(): true}

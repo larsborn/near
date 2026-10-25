@@ -47,6 +47,10 @@ func TestUserMenuEditing(t *testing.T) {
 	if !ok || len(d.Items) != n+1 || d.Items[0].Label != "Say hello" || d.Cursor != 0 {
 		t.Fatalf("after insert: %T items=%d first=%q cursor=%d", a.top(), len(d.Items), d.Items[0].Label, d.Cursor)
 	}
+	// The hot key has a column of its own, as in FAR.
+	if !strings.Contains(screenText(a), " x   Say hello") {
+		t.Fatalf("hot key column missing:\n%s", screenText(a))
+	}
 	m := a.cfg.menu("Quick launch")
 	if it := m.Items[0]; it.Hotkey != "x" || it.Command != "echo hello\necho again" {
 		t.Fatalf("inserted item = %+v", it)

@@ -88,7 +88,7 @@ needs a case for each special key it is asked for (it silently sends a rune othe
 to produce the default `Config`, then the user's file is decoded over it. BurntSushi/toml merges
 maps (`[keys]`: unlisted actions keep defaults) but replaces slices (`[[menus]]`,
 `search_exclude`). `TestDefaultConfigParsesOnEveryPlatform` guards the embedded text.
-Menus edited inside near (`usermenu.go`: Ins/Del/F4/Alt+F4/Ctrl+Up/Down in a menu list, FAR's
+Menus edited inside NEAR (`usermenu.go`: Ins/Del/F4/Alt+F4/Ctrl+Up/Down in a menu list, FAR's
 "Edit user menu" dialog with a `TextArea` for the command lines) are written to `menus.toml` in
 the config dir; `loadConfig` prefers that file over the `[[menus]]` of config.toml. Menu commands
 and Apply command share `expandApply` (FAR's `!` symbols, inserted unquoted) and `askPrompts`.

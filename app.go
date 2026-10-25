@@ -47,7 +47,7 @@ type App struct {
 	hideAll       bool                  // both panels hidden (Ctrl+O)
 	heights       [2]int                // rows taken off a panel's height (Ctrl+Up/Down), 0 = full
 	split         int                   // shift of the divider from the middle (Ctrl+Left/Right)
-	clipboard     string                // last text copied inside near
+	clipboard     string                // last text copied inside NEAR
 	readClip      func() (string, bool) // system clipboard reader; nil in tests
 	tabPending    string                // command line text at an ambiguous Tab; a second Tab lists
 	lastFind      findSpec              // what the Find file dialog asked for last time
@@ -914,7 +914,7 @@ func (a *App) showHelp() {
 		byAction[action] = append(byAction[action], key)
 	}
 	var lines []string
-	lines = append(lines, "near - keyboard reference (from "+a.cfg.path+")", "")
+	lines = append(lines, "NEAR - keyboard reference (from "+a.cfg.path+")", "")
 	for _, h := range actionHelp {
 		keys := byAction[h.Action]
 		sortStrings(keys)

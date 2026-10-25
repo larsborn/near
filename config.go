@@ -98,7 +98,7 @@ func loadConfig(path string) (*Config, error) {
 	} else if _, err := toml.DecodeFile(path, cfg); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	// Menus edited inside near live in menus.toml and replace the ones here.
+	// Menus edited inside NEAR live in menus.toml and replace the ones here.
 	if menus, err := loadMenusFile(filepath.Join(dir, menusFileName)); err == nil {
 		cfg.Menus = menus
 	} else if !os.IsNotExist(err) {
@@ -265,7 +265,7 @@ key = "Shift+F2"
 `
 	}
 
-	return `# near - dual pane terminal file manager.
+	return `# NEAR - dual pane terminal file manager.
 # This file was generated on first start; every value shown is the default.
 #
 # Key names: "F5", "Shift+F6", "Ctrl+X", "Alt+X", "Esc", "Enter", "Tab",
@@ -284,7 +284,7 @@ mouse = true         # click to move the cursor, double-click to open, right-cli
 confirm_delete = true
 delete_to_trash = true   # F8 / Delete move to the Recycle Bin (trash); Shift+F8 / Shift+Delete delete for good
 # Commands typed at the command line run with their output captured into
-# near's console view, which replaces the panels and stays until Ctrl+O; the
+# NEAR's console view, which replaces the panels and stays until Ctrl+O; the
 # command line keeps working like a shell and Ctrl+C stops the command.
 # Programs that need a real terminal are run outside instead: everything
 # listed here, or any command sent with Shift+Enter.
@@ -425,7 +425,7 @@ path = "~"
 # Item fields:
 #   title    text shown in the menu
 #   hotkey   single character that activates the item
-# Menus can also be edited inside near like FAR's user menu: open one (F2),
+# Menus can also be edited inside NEAR like FAR's user menu: open one (F2),
 # then Ins inserts a command or submenu, Del deletes, F4 edits, Alt+F4 edits
 # the file, Ctrl+Up/Ctrl+Down move. Such edits are kept in menus.toml next to
 # this file; once it exists the [[menus]] here are ignored. Commands may

@@ -9,7 +9,7 @@ import (
 )
 
 // ctxMenu is a context menu for a selection: Explorer's shell menu on
-// Windows, a desktop-application menu elsewhere, plus near's own actions.
+// Windows, a desktop-application menu elsewhere, plus NEAR's own actions.
 type ctxMenu interface {
 	Entries() []menuEntry
 	Expand(e menuEntry) []menuEntry
@@ -56,14 +56,14 @@ func (a *App) showContextMenu() {
 	a.showMenuLevel(m, title, entries, nil)
 }
 
-// nearMenuEntries are near's own actions, appended after a separator.
+// nearMenuEntries are NEAR's own actions, appended after a separator.
 func (a *App) nearMenuEntries(targets []Entry) []menuEntry {
 	act := func(text string, hot rune, action string) menuEntry {
 		return menuEntry{text: text, hotkey: hot, run: func() error { a.doAction(action); return nil }}
 	}
 	entries := []menuEntry{{sep: true}}
 	if len(targets) == 1 && !targets[0].IsDir {
-		entries = append(entries, act("View (near)", 'V', "view"), act("Edit (near)", 'E', "edit"))
+		entries = append(entries, act("View (NEAR)", 'V', "view"), act("Edit (NEAR)", 'E', "edit"))
 	}
 	return append(entries,
 		act("Copy to other panel…", 'C', "copy"),

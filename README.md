@@ -1,4 +1,4 @@
-# near
+# NEAR
 
 A keyboard-driven dual pane file manager for the terminal in the spirit of
 FAR Manager. One static binary; runs on Linux, macOS and Windows.
@@ -148,7 +148,7 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   extension, `!~` extension, `!\` directory with trailing separator, `!/`
   without, `!:` drive, `!&` all selected names, `!@!` a temporary file
   listing all selected full paths, `!!` a literal `!`, and
-  `!?Title?Default!` which asks once before running. near's `{file}`-style
+  `!?Title?Default!` which asks once before running. NEAR's `{file}`-style
   placeholders work as well. `Ctrl+C` stops the run and drops the rest.
   Go-to-directory moved to `Alt+F10` / `Shift+F10`.
 - **Context menu** (`Shift+F10`, the keyboard Menu key, or a right click): on
@@ -156,7 +156,7 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   (Open with, 7-Zip, Send to, Properties…), rendered as a FAR-style teal
   list with hotkeys. On Linux it offers Open plus "Open with <app>" for every
   desktop application registered for the file type; on macOS Open, Reveal
-  in Finder, Quick Look and Get Info. near's own actions follow after a
+  in Finder, Quick Look and Get Info. NEAR's own actions follow after a
   separator. `Right`/`Left` open and leave submenus, Esc goes back.
 - **Mouse** (`mouse = true`): click moves the cursor and the active panel,
   double-click opens, right-click opens the context menu, the wheel scrolls;
