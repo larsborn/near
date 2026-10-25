@@ -342,11 +342,11 @@ func (a *App) editNote() {
 
 // ---------------------------------------------------------------- menus
 
-func (a *App) openMenu(m *Menu) {
+func (a *App) openMenu(m *Menu) *ListDialog {
 	items := make([]ListItem, 0, len(m.Items))
 	for i, it := range m.Items {
 		if it.Title == "-" || it.Title == "---" {
-			items = append(items, ListItem{Sep: true})
+			items = append(items, ListItem{Sep: true, Data: i})
 			continue
 		}
 		var hk rune
@@ -373,24 +373,12 @@ func (a *App) openMenu(m *Menu) {
 		if it.Command == "" {
 			return
 		}
-		run := func() {
-			cwd := a.tab().Path
-			if it.Cwd != "" {
-				cwd = a.expandPlaceholders(it.Cwd)
-			}
-			a.runShell(a.expandPlaceholders(it.Command), cwd, !it.NoWait, it.Detach)
-		}
-		if it.Confirm {
-			a.confirm(it.Title, []string{fitLeft(a.expandPlaceholders(it.Command), a.w-10)}, []string{"Run", "Cancel"}, func(r int) {
-				if r == 0 {
-					run()
-				}
-			})
-			return
-		}
-		run()
+		a.runMenuItem(it)
 	})
-	d.Hint = "Enter: run   Esc: close"
+	d.Menu = true
+	d.Hint = "Ins Del F4 Alt+F4 Ctrl+Up Ctrl+Down"
+	d.OnKey = func(a *App, d *ListDialog, ev *tcell.EventKey) bool { return a.userMenuKey(m, d, ev) }
+	return d
 }
 
 func (a *App) showMenuList() {
@@ -406,7 +394,11 @@ func (a *App) showMenuList() {
 		a.openMenu(&a.cfg.Menus[li.Data.(int)])
 	})
 	d.Searchable = true
-	d.Hint = "Menus are defined in " + fitRight(a.cfg.path, 50)
+	where := a.cfg.path
+	if _, err := os.Stat(a.menusFile()); err == nil {
+		where = a.menusFile()
+	}
+	d.Hint = "Menus are defined in " + fitRight(where, 50)
 }
 
 func (a *App) showSortMenu() {

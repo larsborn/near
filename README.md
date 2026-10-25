@@ -85,6 +85,16 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
 - **Quick launch menu** (`F2`) and any number of **custom menus** (`F9` lists
   them, each may have its own key, menus nest). Items run shell commands with
   placeholders for the current file, the selection and both directories.
+  Menus are edited in place like FAR's user menu: `Ins` inserts a command or
+  a submenu, `Del` deletes, `F4` opens the "Edit user menu" dialog (hot key,
+  label, command lines), `Alt+F4` edits the menu file, `Ctrl+Up`/`Ctrl+Down`
+  move items. Edited menus live in `menus.toml` next to the config. Commands
+  may span several lines and use FAR's symbols: `!.!` name, `!` name without
+  extension, `!~` extension, `!\` directory, `!&` selected names, `!@!` a
+  file listing the selection, `!?Title?Default!` asks before running, `!!`
+  a literal `!`. They are inserted as they are, so write `"!.!"` where a
+  name may contain spaces. A command naming a file runs once per selected
+  entry, e.g. `pdflatex "!.tex"` on three selected `.tex` files.
 - **Histories**, FAR's keys: `Alt+F8` commands (Enter runs, Shift+Enter edits,
   Delete removes), `Alt+F12` folders (Enter goes, Ctrl+T new tab, Shift+Enter
   other panel), `Alt+F11` viewed and edited files (Enter views, F4 edits,

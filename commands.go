@@ -20,8 +20,13 @@ func shQuote(s string) string {
 // expandPlaceholders replaces {file} {path} {files} {paths} {dir} {other}
 // {name} {ext} with values from the active panel, quoted for the shell.
 func (a *App) expandPlaceholders(cmd string) string {
+	return a.expandFor(cmd, a.tab().Current())
+}
+
+// expandFor is expandPlaceholders with an explicit current entry, used when
+// a command is run once per selected entry.
+func (a *App) expandFor(cmd string, cur *Entry) string {
 	t := a.tab()
-	cur := t.Current()
 	var file, name, ext string
 	if cur != nil && !cur.IsUp {
 		file = cur.Name

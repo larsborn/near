@@ -653,6 +653,9 @@ func (d *ListDialog) Draw(a *App) {
 				w = lw
 			}
 		}
+		if hw := runewidth.StringWidth(d.Hint) + 4; hw > w {
+			w = hw // the key hints of a menu must stay readable
+		}
 	}
 	w = clampInt(w, 24, a.w-2)
 	h := rows + 2

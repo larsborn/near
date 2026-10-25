@@ -16,13 +16,13 @@ func TestExpandApply(t *testing.T) {
 	}
 	got := expandApply("conv !.! -> !.txt ext=!~ dir=!\\ nodir=!/ bang=!! list=!@! all=!&", dir, e, "LIST", "A B")
 	for _, want := range []string{
-		"conv " + shQuote("report.final.pdf"),
-		"-> " + shQuote("report.final") + ".txt",
+		"conv report.final.pdf",
+		"-> report.final.txt",
 		"ext=pdf",
-		"dir=" + shQuote(dir+sep),
-		"nodir=" + shQuote(dir),
+		"dir=" + dir + sep,
+		"nodir=" + dir,
 		"bang=!",
-		"list=" + shQuote("LIST"),
+		"list=LIST",
 		"all=A B",
 	} {
 		if !strings.Contains(got, want) {
@@ -35,7 +35,7 @@ func TestExpandApply(t *testing.T) {
 		}
 	}
 	// A directory has no extension: ! is the whole name.
-	if got := expandApply("!", dir, Entry{Name: "my.dir", IsDir: true}, "", ""); got != shQuote("my.dir") {
+	if got := expandApply("!", dir, Entry{Name: "my.dir", IsDir: true}, "", ""); got != "my.dir" {
 		t.Fatalf("dir name = %q", got)
 	}
 }

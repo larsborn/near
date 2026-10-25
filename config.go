@@ -98,6 +98,12 @@ func loadConfig(path string) (*Config, error) {
 	} else if _, err := toml.DecodeFile(path, cfg); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	// Menus edited inside near live in menus.toml and replace the ones here.
+	if menus, err := loadMenusFile(filepath.Join(dir, menusFileName)); err == nil {
+		cfg.Menus = menus
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("%s: %w", filepath.Join(dir, menusFileName), err)
+	}
 	if cfg.SearchMaxResults <= 0 {
 		cfg.SearchMaxResults = 500
 	}
@@ -419,6 +425,14 @@ path = "~"
 # Item fields:
 #   title    text shown in the menu
 #   hotkey   single character that activates the item
+# Menus can also be edited inside near like FAR's user menu: open one (F2),
+# then Ins inserts a command or submenu, Del deletes, F4 edits, Alt+F4 edits
+# the file, Ctrl+Up/Ctrl+Down move. Such edits are kept in menus.toml next to
+# this file; once it exists the [[menus]] here are ignored. Commands may
+# span several lines (run one after another) and use FAR's symbols (!.!
+# name, ! name without extension, !~ extension, !\ directory, !& selected
+# names, !@! list file, !?Title?Default! asks first); a command naming a
+# file runs once per selected entry.
 #   command  shell command; placeholders (all quoted for the shell):
 #              {file}   current entry name       {path}   its full path
 #              {files}  selected names (or current)  {paths} their full paths

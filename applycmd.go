@@ -44,7 +44,7 @@ func applyHelpLines(w int) []string {
 	}
 	last := applyTokens[len(applyTokens)-1]
 	lines = append(lines, last[0]+"  "+last[1])
-	return append(lines, "near's {file} {path} {dir} {other} placeholders work as well.")
+	return append(lines, "Symbols are inserted as they are (quote them: \"!.!\"); near's {file} {path} {dir} {other} are quoted.")
 }
 
 // ApplyDialog asks for the command template.
@@ -101,22 +101,30 @@ func (d *ApplyDialog) Draw(a *App) {
 
 // runApply resolves !?prompts?, then queues one command per target.
 func (a *App) runApply(template string, targets []Entry) {
-	// Prompts: !?Title?Default! — ask once, substitute everywhere.
+	a.askPrompts(template, "Apply command", func(cmd string) { a.applyExpanded(cmd, targets) })
+}
+
+// askPrompts resolves FAR's !?Title?Default! prompts one after another,
+// asking the user for each, then calls then with the completed template.
+func (a *App) askPrompts(template, title string, then func(string)) {
 	if i := strings.Index(template, "!?"); i >= 0 {
 		rest := template[i+2:]
-		end := strings.Index(rest, "!")
-		if end >= 0 {
+		if end := strings.Index(rest, "!"); end >= 0 {
 			spec := rest[:end]
-			title, def := spec, ""
+			prompt, def := spec, ""
 			if q := strings.Index(spec, "?"); q >= 0 {
-				title, def = spec[:q], spec[q+1:]
+				prompt, def = spec[:q], spec[q+1:]
 			}
-			a.input("Apply command", title+":", def, func(v string) {
-				a.runApply(strings.Replace(template, "!?"+spec+"!", v, 1), targets)
+			a.input(title, prompt+":", def, func(v string) {
+				a.askPrompts(strings.Replace(template, "!?"+spec+"!", v, 1), title, then)
 			})
 			return
 		}
 	}
+	then(template)
+}
+
+func (a *App) applyExpanded(template string, targets []Entry) {
 	t := a.tab()
 	var listFile string
 	if strings.Contains(template, "!@!") {
@@ -159,17 +167,20 @@ func expandApply(tpl, dir string, e Entry, listFile, allNames string) string {
 	if !strings.HasSuffix(dirSlash, string(filepath.Separator)) {
 		dirSlash += string(filepath.Separator)
 	}
-	// Longest tokens first so "!.!" is not read as "!" + ".!".
+	// Longest tokens first so "!.!" is not read as "!" + ".!". As in FAR the
+	// symbols are inserted as they are: quote them yourself ("!.!") where a
+	// name with spaces matters. !& quotes each name.
 	r := strings.NewReplacer(
 		"!!", "\x00",
-		"!@!", shQuote(listFile),
-		"!.!", shQuote(name),
+		"!@!", listFile,
+		"!.!", name,
 		"!&", allNames,
 		"!~", ext,
-		"!\\", shQuote(dirSlash),
-		"!/", shQuote(strings.TrimSuffix(dir, string(filepath.Separator))),
+		"!`", ext,
+		"!\\", dirSlash,
+		"!/", strings.TrimSuffix(dir, string(filepath.Separator)),
 		"!:", drive,
-		"!", shQuote(base),
+		"!", base,
 	)
 	return strings.ReplaceAll(r.Replace(tpl), "\x00", "!")
 }
