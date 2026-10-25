@@ -130,9 +130,4 @@ func TestGotoPathKeyMoved(t *testing.T) {
 		t.Fatalf("Alt+F10 should open go-to-directory, got %T", a.top())
 	}
 	key(a, "Esc")
-	key(a, "Shift+F10")
-	if _, ok := a.top().(*InputDialog); !ok {
-		t.Fatal("Shift+F10 should open go-to-directory too")
-	}
-	key(a, "Esc")
 }

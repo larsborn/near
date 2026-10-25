@@ -14,6 +14,11 @@ type Dialog interface {
 	Draw(a *App)
 }
 
+// mouseDialog is a dialog that also reacts to the mouse.
+type mouseDialog interface {
+	HandleMouse(a *App, ev *tcell.EventMouse)
+}
+
 // ---------------------------------------------------------------- drawing
 
 func (a *App) print(x, y, maxw int, st tcell.Style, s string) int {
@@ -496,6 +501,7 @@ type ListItem struct {
 	Right  string
 	Data   any
 	Sep    bool
+	Dim    bool // disabled entry, shown greyed
 }
 
 type ListDialog struct {
@@ -506,9 +512,13 @@ type ListDialog struct {
 	Width      int
 	Hint       string
 	Searchable bool
+	Menu       bool // FAR menu colours (teal) instead of dialog grey
 	OnSelect   func(i int, it ListItem)
 	OnKey      func(a *App, d *ListDialog, ev *tcell.EventKey) bool
+	OnClose    func() // called when the list is left with Esc
 	filter     []rune
+	box        rect // where the list was drawn, for the mouse
+	rowsShown  int
 }
 
 func (a *App) list(title string, items []ListItem, onSelect func(int, ListItem)) *ListDialog {
@@ -579,6 +589,9 @@ func (d *ListDialog) HandleKey(a *App, ev *tcell.EventKey) {
 		d.select_(a)
 	case "Esc":
 		a.pop()
+		if d.OnClose != nil {
+			d.OnClose()
+		}
 	case "Backspace":
 		if len(d.filter) > 0 {
 			d.filter = d.filter[:len(d.filter)-1]
@@ -642,7 +655,12 @@ func (d *ListDialog) Draw(a *App) {
 		h++
 	}
 	x, y := a.center(w, h)
-	a.drawBox(x, y, w, h, th.Dialog, d.Title)
+	d.box, d.rowsShown = rect{x, y, w, h}, rows
+	body, cursorSt, hotSt, dimSt, hintSt := th.Dialog, th.ListCursor, th.Hotkey, th.ListDim, th.DialogHint
+	if d.Menu {
+		body, cursorSt, hotSt, dimSt, hintSt = th.Menu, th.MenuCursor, th.MenuHot, th.MenuDim, th.MenuDim
+	}
+	a.drawBox(x, y, w, h, body, d.Title)
 	for i := 0; i < rows; i++ {
 		idx := d.Top + i
 		if idx >= len(d.Items) {
@@ -651,14 +669,19 @@ func (d *ListDialog) Draw(a *App) {
 		it := d.Items[idx]
 		ry := y + 1 + i
 		if it.Sep {
-			a.hline(x+1, ry, w-2, th.Dialog, '─')
+			a.hline(x+1, ry, w-2, body, '─')
+			a.screen.SetContent(x, ry, '╟', nil, body)
+			a.screen.SetContent(x+w-1, ry, '╢', nil, body)
 			continue
 		}
-		st := th.Dialog
-		hot := th.Hotkey
+		st := body
+		hot := hotSt
+		if it.Dim {
+			st, hot = dimSt, dimSt
+		}
 		if idx == d.Cursor {
-			st = th.ListCursor
-			hot = th.ListCursor.Bold(true)
+			st = cursorSt
+			hot = cursorSt.Bold(true)
 		}
 		a.fill(x+1, ry, w-2, 1, st)
 		label := fitLeft(it.Label, w-4)
@@ -679,9 +702,9 @@ func (d *ListDialog) Draw(a *App) {
 		}
 	}
 	if len(d.filter) > 0 {
-		a.print(x+2, y+h-2, w-4, th.DialogHint, "Search: "+string(d.filter))
+		a.print(x+2, y+h-2, w-4, hintSt, "Search: "+string(d.filter))
 	} else if d.Hint != "" {
-		a.print(x+2, y+h-2, w-4, th.DialogHint, fitLeft(d.Hint, w-4))
+		a.print(x+2, y+h-2, w-4, hintSt, fitLeft(d.Hint, w-4))
 	}
 }
 
@@ -852,4 +875,34 @@ func (d *TextDialog) Draw(a *App) {
 	}
 	a.screen.ShowCursor(x+2+col, y+1+d.Row-d.Top)
 	a.print(x+2, y+h-2, w-4, th.DialogHint, "Ctrl+S / F2: save   Esc: cancel   Enter: new line")
+}
+
+// HandleMouse: a click on an entry activates it, the wheel scrolls, a
+// click outside the list closes it like Esc.
+func (d *ListDialog) HandleMouse(a *App, ev *tcell.EventMouse) {
+	x, y := ev.Position()
+	b := ev.Buttons()
+	switch {
+	case b&tcell.WheelUp != 0:
+		d.move(-1, d.rowsShown)
+	case b&tcell.WheelDown != 0:
+		d.move(1, d.rowsShown)
+	case b&(tcell.ButtonPrimary|tcell.ButtonSecondary) != 0:
+		inside := x >= d.box.x && x < d.box.x+d.box.w && y >= d.box.y && y < d.box.y+d.box.h
+		if !inside {
+			a.pop()
+			if d.OnClose != nil {
+				d.OnClose()
+			}
+			return
+		}
+		row := y - (d.box.y + 1)
+		if row < 0 || row >= d.rowsShown || d.Top+row >= len(d.Items) || d.Items[d.Top+row].Sep {
+			return
+		}
+		d.Cursor = d.Top + row
+		if b&tcell.ButtonPrimary != 0 {
+			d.select_(a)
+		}
+	}
 }

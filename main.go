@@ -48,6 +48,10 @@ func main() {
 	}
 	app := newApp(cfg, screen)
 	screen.SetStyle(app.theme.Panel)
+	if cfg.Mouse {
+		screen.EnableMouse()
+	}
+	startMenuKeyWatcher(screen)
 	defer func() {
 		if r := recover(); r != nil {
 			screen.Fini()

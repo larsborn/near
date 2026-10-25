@@ -38,6 +38,7 @@ func (a *App) drawAll() {
 	a.screen.HideCursor()
 	ph := a.h - bottomRows
 	pw := a.panelSplit()
+	a.panelRect = [2]rect{}
 	// The panel area is blank where no panel is drawn: hidden panels, and
 	// the rows below a panel made shorter with Ctrl+Down.
 	a.fill(0, 0, a.w, ph, a.theme.Cmd)
@@ -82,10 +83,13 @@ func (a *App) drawAll() {
 }
 
 func (a *App) drawPanel(idx, x, y, w, h int) {
+	a.panelRect[idx] = rect{x, y, w, h}
 	th := a.theme
 	p := a.panels[idx]
 	t := p.Tab()
-	active := idx == a.active && len(a.dialogs) == 0
+	// The active panel keeps its cursor bar under dialogs too, so the entry
+	// a context menu or a copy dialog refers to stays visibly selected.
+	active := idx == a.active
 	a.fill(x, y, w, h, th.Panel)
 
 	// frame

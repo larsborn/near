@@ -15,6 +15,26 @@ working tree. Run `gofmt -l .`, `go vet ./...` and `go test ./...` first, commit
 that says what changed for the user, then `git push`. Releases are separate: they
 are cut only when asked, by tagging `vX.Y.Z` and pushing the tag (see below).
 
+## Open tasks — `todo/`
+
+`todo/` is the durable memory of open tasks and unresolved questions — one Markdown file
+per task (kebab-case filename). Treat it as the work queue; check it when picking up work.
+
+- **Write tasks here autonomously.** Whenever an open question, deferred fix, or follow-up
+  arises that isn't being done right now, create `todo/<slug>.md` for it — don't rely on it
+  living only in the conversation.
+- **Each file must be self-contained.** Assume the reader has *none* of the originating
+  conversation's context: state what it is, why it matters, current status/findings, the
+  relevant files/commands, options already considered, and clear acceptance criteria.
+- **Delete a task file when the task is resolved** — don't leave stale "done" markers; git
+  history preserves it. Keep files updated as understanding changes.
+- **Remind the user of open tasks at the start of a new conversation** — briefly list
+  what's in `todo/` so nothing is silently forgotten.
+- **These are pre-backlog notes**, not a formal backlog. Resolving a task means either
+  *doing* it or *promoting* it — e.g. moving it into a real backlog once one exists (issue
+  tracker, project board). If a backlog is introduced, migrating a `todo/` file there (and
+  deleting it here) is a valid resolution.
+
 ## Commands
 
 ```sh

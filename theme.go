@@ -4,22 +4,23 @@ import "github.com/gdamore/tcell/v2"
 
 // Theme holds every style used by the UI.
 type Theme struct {
-	Panel, Border, BorderActive     tcell.Style
-	TabBar, Tab, TabActive          tcell.Style
-	Path, Header                    tcell.Style
-	Dir, File, Hidden, Link         tcell.Style
-	Selected, Cursor, CursorSel     tcell.Style
-	Info, Note                      tcell.Style
-	Status, StatusErr               tcell.Style
-	KeyNum, KeyLabel                tcell.Style
-	Dialog, DialogTitle, DialogHint tcell.Style
-	Input, InputFocus               tcell.Style
-	Button, ButtonActive            tcell.Style
-	ListCursor, Hotkey, ListDim     tcell.Style
-	Conflict                        tcell.Style
-	Viewer                          tcell.Style
-	Cmd, CmdPrompt                  tcell.Style
-	DiffAdd, DiffDel, DiffChange    tcell.Style
+	Panel, Border, BorderActive        tcell.Style
+	TabBar, Tab, TabActive             tcell.Style
+	Path, Header                       tcell.Style
+	Dir, File, Hidden, Link            tcell.Style
+	Selected, Cursor, CursorSel        tcell.Style
+	Info, Note                         tcell.Style
+	Status, StatusErr                  tcell.Style
+	KeyNum, KeyLabel                   tcell.Style
+	Dialog, DialogTitle, DialogHint    tcell.Style
+	Input, InputFocus                  tcell.Style
+	Button, ButtonActive               tcell.Style
+	ListCursor, Hotkey, ListDim        tcell.Style
+	Conflict                           tcell.Style
+	Viewer                             tcell.Style
+	Cmd, CmdPrompt                     tcell.Style
+	DiffAdd, DiffDel, DiffChange       tcell.Style
+	Menu, MenuCursor, MenuHot, MenuDim tcell.Style
 }
 
 func themeByName(name string) *Theme {
@@ -72,6 +73,10 @@ func farTheme() *Theme {
 		DiffAdd:      tcell.StyleDefault.Background(bg).Foreground(tcell.ColorLime),
 		DiffDel:      tcell.StyleDefault.Background(bg).Foreground(tcell.ColorRed).Bold(true),
 		DiffChange:   tcell.StyleDefault.Background(bg).Foreground(tcell.ColorYellow),
+		Menu:         tcell.StyleDefault.Background(tcell.ColorTeal).Foreground(tcell.ColorWhite),
+		MenuCursor:   tcell.StyleDefault.Background(tcell.ColorBlack).Foreground(tcell.ColorWhite),
+		MenuHot:      tcell.StyleDefault.Background(tcell.ColorTeal).Foreground(tcell.ColorYellow).Bold(true),
+		MenuDim:      tcell.StyleDefault.Background(tcell.ColorTeal).Foreground(tcell.ColorSilver),
 	}
 }
 
@@ -116,5 +121,9 @@ func plainTheme() *Theme {
 		DiffAdd:      d.Foreground(tcell.ColorGreen),
 		DiffDel:      d.Foreground(tcell.ColorRed).Bold(true),
 		DiffChange:   d.Foreground(tcell.ColorYellow),
+		Menu:         d,
+		MenuCursor:   d.Reverse(true),
+		MenuHot:      d.Foreground(tcell.ColorYellow).Bold(true),
+		MenuDim:      d.Dim(true),
 	}
 }

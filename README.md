@@ -126,6 +126,17 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   `!?Title?Default!` which asks once before running. near's `{file}`-style
   placeholders work as well. `Ctrl+C` stops the run and drops the rest.
   Go-to-directory moved to `Alt+F10` / `Shift+F10`.
+- **Context menu** (`Shift+F10`, the keyboard Menu key, or a right click): on
+  Windows it is Explorer's own shell menu for the entry, submenus included
+  (Open with, 7-Zip, Send to, Properties…), rendered as a FAR-style teal
+  list with hotkeys. On Linux it offers Open plus "Open with <app>" for every
+  desktop application registered for the file type; on macOS Open, Reveal
+  in Finder, Quick Look and Get Info. near's own actions follow after a
+  separator. `Right`/`Left` open and leave submenus, Esc goes back.
+- **Mouse** (`mouse = true`): click moves the cursor and the active panel,
+  double-click opens, right-click opens the context menu, the wheel scrolls;
+  menus and lists take clicks too. Hold Shift to select terminal text while
+  the mouse is enabled.
 - **Slow directories** (network shares, sleeping disks): a directory that
   takes longer than a third of a second to read shows a "Reading directory…"
   box with the elapsed time; `Esc` there gives up and leaves the panel where

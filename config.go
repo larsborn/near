@@ -42,6 +42,7 @@ type Config struct {
 	Shell               string              `toml:"shell"`
 	Theme               string              `toml:"theme"`
 	ShowHidden          bool                `toml:"show_hidden"`
+	Mouse               bool                `toml:"mouse"`
 	ConfirmDelete       bool                `toml:"confirm_delete"`
 	DeleteToTrash       bool                `toml:"delete_to_trash"`
 	CommandWait         bool                `toml:"command_wait"`
@@ -273,6 +274,7 @@ editor_tab_size = 4
 shell = ""           # empty: $SHELL or sh (cmd on Windows)
 theme = "far"        # "far" (blue, FAR-like) or "plain" (terminal colours)
 show_hidden = true   # list dot files and files with the hidden attribute (Ctrl+F10 toggles)
+mouse = true         # click to move the cursor, double-click to open, right-click for the context menu, wheel to scroll
 confirm_delete = true
 delete_to_trash = true   # F8 / Delete move to the Recycle Bin (trash); Shift+F8 / Shift+Delete delete for good
 # Commands typed at the command line run with their output captured into
@@ -385,7 +387,8 @@ refresh = ["Ctrl+R"]
 swap_panels = ["Ctrl+U"]
 sync_other = ["Shift+F12"]
 locations = ["Alt+F1", "Alt+F2", "Ctrl+L"]
-goto_path = ["Alt+F10", "Shift+F10"]  # go to a directory by path
+goto_path = ["Alt+F10"]               # go to a directory by path
+context_menu = ["Shift+F10", "Menu"]   # the file's context menu (Explorer's on Windows); also by right-click
 apply_command = ["Ctrl+G"]             # FAR: apply a shell command to every selected entry
 run_command = []                       # the command line replaces this dialog; bind if wanted
 toggle_panels = ["Ctrl+O"]

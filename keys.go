@@ -223,6 +223,7 @@ var actionHelp = []struct{ Action, Help string }{
 	{"sync_other", "Other panel: go to this directory"},
 	{"locations", "Drives, mounts and bookmarks"},
 	{"goto_path", "Go to path"},
+	{"context_menu", "Context menu of the current entry (Explorer's shell menu on Windows)"},
 	{"apply_command", "Apply a shell command to every selected entry (!.! ! !~ !\\ !@! …)"},
 	{"run_command", "Run a shell command (dialog)"},
 	{"insert_name", "Command line: insert current entry name"},

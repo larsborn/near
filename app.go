@@ -60,7 +60,14 @@ type App struct {
 	slowBoxShown     bool            // the slow directory box was drawn (tests)
 	lastApply        string          // last Apply command template
 	cmdQueue         []queuedCommand // console commands waiting to run one after another
+	panelRect        [2]rect         // where the panels were drawn, for the mouse
+	lastClick        time.Time
+	lastClickAt      [2]int
+	lastButtons      tcell.ButtonMask
 }
+
+// rect is a screen rectangle.
+type rect struct{ x, y, w, h int }
 
 // panelVisible reports whether panel i is drawn.
 func (a *App) panelVisible(i int) bool { return !a.hideAll && !a.hidden[i] }
@@ -280,6 +287,8 @@ func (a *App) handleEvent(ev tcell.Event) {
 		// progress changed; the redraw shows it
 	case *EventTransferDone:
 		a.transferDone(ev.t)
+	case *tcell.EventMouse:
+		a.handleMouse(ev)
 	}
 }
 
@@ -605,6 +614,8 @@ func (a *App) doAction(action string) {
 		a.showTransfers()
 	case "apply_command":
 		a.applyCommand()
+	case "context_menu":
+		a.showContextMenu()
 	case "help":
 		a.showHelp()
 	case "switch_panel":
