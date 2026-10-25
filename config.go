@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -125,16 +126,25 @@ func (c *Config) menu(name string) *Menu {
 	return nil
 }
 
-// expandPath expands a leading ~ and environment variables.
+// expandPath expands a leading ~ and environment variables in both the
+// Unix ($VAR, ${VAR}) and the Windows (%VAR%) notation.
 func expandPath(p string) string {
 	p = strings.TrimSpace(p)
 	if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, "~\\") {
 		home, _ := os.UserHomeDir()
 		p = home + p[1:]
 	}
+	p = percentEnv.ReplaceAllStringFunc(p, func(m string) string {
+		if v, ok := os.LookupEnv(m[1 : len(m)-1]); ok {
+			return v
+		}
+		return m
+	})
 	p = os.ExpandEnv(p)
 	return filepath.Clean(p)
 }
+
+var percentEnv = regexp.MustCompile(`%[^%\s]+%`)
 
 func defaultConfigText() string { return defaultConfigTextFor(runtime.GOOS) }
 
@@ -375,7 +385,8 @@ refresh = ["Ctrl+R"]
 swap_panels = ["Ctrl+U"]
 sync_other = ["Shift+F12"]
 locations = ["Alt+F1", "Alt+F2", "Ctrl+L"]
-goto_path = ["Ctrl+G"]
+goto_path = ["Alt+F10", "Shift+F10"]  # go to a directory by path
+apply_command = ["Ctrl+G"]             # FAR: apply a shell command to every selected entry
 run_command = []                       # the command line replaces this dialog; bind if wanted
 toggle_panels = ["Ctrl+O"]
 toggle_inactive_panel = ["Ctrl+P"]     # FAR: hide/show the inactive panel

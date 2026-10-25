@@ -117,6 +117,15 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   first/last entry, `Shift+PgUp`/`Shift+PgDn` a page (from an already selected
   entry these unselect instead), `+`/`-`/`*` by pattern and invert, `Ctrl+A`
   all.
+- **Apply command** (`Ctrl+G`), FAR's batch command: a shell command template
+  run once for every selected entry, one after another in the console view,
+  with FAR's substitutions: `!.!` name with extension, `!` name without
+  extension, `!~` extension, `!\` directory with trailing separator, `!/`
+  without, `!:` drive, `!&` all selected names, `!@!` a temporary file
+  listing all selected full paths, `!!` a literal `!`, and
+  `!?Title?Default!` which asks once before running. near's `{file}`-style
+  placeholders work as well. `Ctrl+C` stops the run and drops the rest.
+  Go-to-directory moved to `Alt+F10` / `Shift+F10`.
 - **Slow directories** (network shares, sleeping disks): a directory that
   takes longer than a third of a second to read shows a "Reading directory…"
   box with the elapsed time; `Esc` there gives up and leaves the panel where

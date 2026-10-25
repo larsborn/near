@@ -487,6 +487,14 @@ func (a *App) commandDone(err error) {
 	default:
 		a.console.Println("["+err.Error()+"]", a.theme.StatusErr)
 	}
+	// More queued commands (Apply command): run the next one first; the
+	// panels come back only after the last.
+	if len(a.cmdQueue) > 0 {
+		keep := a.restorePanels
+		a.startQueued()
+		a.restorePanels = keep
+		return
+	}
 	if a.restorePanels {
 		a.hideAll = false
 		a.restorePanels = false
@@ -500,6 +508,7 @@ func (a *App) stopCommand() {
 		return
 	}
 	a.console.Println("^C", a.theme.StatusErr)
+	a.cmdQueue = nil // Ctrl+C also drops the commands still waiting
 	killTree(a.running)
 }
 

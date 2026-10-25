@@ -56,8 +56,10 @@ type App struct {
 	lastProgress     time.Time // last progress box redraw
 	lastProgressItem string
 	spinner          int
-	transfers        *transferQueue // copies and moves, run one after another
-	slowBoxShown     bool           // the slow directory box was drawn (tests)
+	transfers        *transferQueue  // copies and moves, run one after another
+	slowBoxShown     bool            // the slow directory box was drawn (tests)
+	lastApply        string          // last Apply command template
+	cmdQueue         []queuedCommand // console commands waiting to run one after another
 }
 
 // panelVisible reports whether panel i is drawn.
@@ -605,6 +607,8 @@ func (a *App) doAction(action string) {
 		a.quit = true
 	case "transfers":
 		a.showTransfers()
+	case "apply_command":
+		a.applyCommand()
 	case "help":
 		a.showHelp()
 	case "switch_panel":
