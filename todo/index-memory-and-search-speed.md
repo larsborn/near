@@ -16,6 +16,10 @@ Since 2026-10-25 the default `search_roots` is `["*"]`, every fixed drive (`driv
 than the home directory. That makes the footprint the default experience, not a power-user
 choice: measure it with all of C: indexed, not just the home directory.
 
+Measured on 2026-10-25 20:29 with the new default on the developer's box (C: and D:):
+7,697,088 names in 832,109 directories, built in 96 s, cache 283 MB, and the process sat at
+3.2 GB private memory / 3.9 GB working set after the build. That is the number to bring down.
+
 ## Ideas
 - Drop the per-directory `[]string` slices in favour of the flat view as the primary store
   (the map is now only needed for watcher updates and result verification).

@@ -49,6 +49,7 @@ type App struct {
 	split         int                   // shift of the divider from the middle (Ctrl+Left/Right)
 	clipboard     string                // last text copied inside near
 	readClip      func() (string, bool) // system clipboard reader; nil in tests
+	tabPending    string                // command line text at an ambiguous Tab; a second Tab lists
 	console       *Console              // output of commands run from the command line
 	running       *exec.Cmd
 	runStart      time.Time
@@ -332,7 +333,10 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 	if a.hideAll {
 		rows := a.h - bottomRows + 1 // the console also uses the (cleared) status row
 		switch name {
-		case "Tab", "Shift+Tab", "Shift+Up", "Shift+Down", "Shift+Home", "Shift+End", "Shift+PgUp", "Shift+PgDn":
+		case "Tab":
+			a.completeCmd()
+			return
+		case "Shift+Tab", "Shift+Up", "Shift+Down", "Shift+Home", "Shift+End", "Shift+PgUp", "Shift+PgDn":
 			return
 		case "Up":
 			a.historyStep(-1)
