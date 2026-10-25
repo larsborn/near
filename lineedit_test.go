@@ -2,6 +2,8 @@ package main
 
 import (
 	"testing"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 func TestLineEditSelection(t *testing.T) {
@@ -92,5 +94,40 @@ func TestCommandLineSelection(t *testing.T) {
 	key(a, "Ctrl+C")
 	if a.clipboard != "git commit -m fix" {
 		t.Fatalf("copied %q", a.clipboard)
+	}
+}
+
+// Ctrl+V pastes the system clipboard into the command line, also when the
+// line is empty and in the console view; near's own clipboard is the
+// fallback when the system one cannot be read.
+func TestCtrlVPastesSystemClipboard(t *testing.T) {
+	a, _ := testApp(t)
+	a.readClip = func() (string, bool) { return "git log --oneline\r\nsecond line", true }
+	key(a, "Ctrl+V")
+	if a.cmd.String() != "git log --oneline" {
+		t.Fatalf("empty line + Ctrl+V: %q", a.cmd.String())
+	}
+	key(a, "Ctrl+O") // console view
+	if !a.hideAll {
+		t.Fatal("Ctrl+O did not open the console view")
+	}
+	typeText(a, " -5")
+	key(a, "Ctrl+V")
+	if a.cmd.String() != "git log --oneline -5git log --oneline" {
+		t.Fatalf("console view + Ctrl+V: %q", a.cmd.String())
+	}
+	// Without a readable system clipboard, near's own copy is pasted.
+	a.readClip = func() (string, bool) { return "", false }
+	a.clipboard = "fallback"
+	key(a, "Esc")
+	key(a, "Ctrl+V")
+	if a.cmd.String() != "fallback" {
+		t.Fatalf("fallback paste: %q", a.cmd.String())
+	}
+	// A text clipboard reply from the terminal lands on the command line.
+	key(a, "Esc")
+	a.handleEvent(tcell.NewEventClipboard([]byte("from terminal\n")))
+	if a.cmd.String() != "from terminal" {
+		t.Fatalf("terminal clipboard: %q", a.cmd.String())
 	}
 }

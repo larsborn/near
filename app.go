@@ -41,14 +41,15 @@ type App struct {
 	cmd           *LineEdit // the command line at the bottom
 	history       []string  // command history, oldest first
 	histPos       int
-	dirHistory    []string // directories visited, oldest first
-	fileHistory   []string // files viewed, edited or opened, oldest first
-	hidden        [2]bool  // individual panels hidden (Ctrl+F1 / Ctrl+P)
-	hideAll       bool     // both panels hidden (Ctrl+O)
-	heights       [2]int   // rows taken off a panel's height (Ctrl+Up/Down), 0 = full
-	split         int      // shift of the divider from the middle (Ctrl+Left/Right)
-	clipboard     string   // last text copied inside near
-	console       *Console // output of commands run from the command line
+	dirHistory    []string              // directories visited, oldest first
+	fileHistory   []string              // files viewed, edited or opened, oldest first
+	hidden        [2]bool               // individual panels hidden (Ctrl+F1 / Ctrl+P)
+	hideAll       bool                  // both panels hidden (Ctrl+O)
+	heights       [2]int                // rows taken off a panel's height (Ctrl+Up/Down), 0 = full
+	split         int                   // shift of the divider from the middle (Ctrl+Left/Right)
+	clipboard     string                // last text copied inside near
+	readClip      func() (string, bool) // system clipboard reader; nil in tests
+	console       *Console              // output of commands run from the command line
 	running       *exec.Cmd
 	runStart      time.Time
 	restorePanels bool // panels were visible before the command: show them again when it ends
@@ -134,7 +135,7 @@ func (a *App) resizePanels(which, delta int) {
 }
 
 func newApp(cfg *Config, s tcell.Screen) *App {
-	a := &App{screen: s, cfg: cfg, showHidden: cfg.ShowHidden, cmd: newLineEdit("")}
+	a := &App{screen: s, cfg: cfg, showHidden: cfg.ShowHidden, cmd: newLineEdit(""), readClip: readClipboard}
 	a.theme = themeByName(cfg.Theme)
 	a.keymap = buildKeymap(cfg)
 	a.index = newIndex()
@@ -278,6 +279,8 @@ func (a *App) handleEvent(ev tcell.Event) {
 			if e, ok := a.top().(*Editor); ok {
 				e.pasteText(string(ev.Data()))
 			}
+		} else if len(ev.Data()) > 0 {
+			a.cmd.insert(firstLine(string(ev.Data())))
 		}
 	case *EventConsole:
 		// new output arrived; the redraw shows it
@@ -395,6 +398,12 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 		}
 	}
 	if plainRune && (typing || !bound) {
+		a.cmd.HandleKey(ev, a)
+		a.histPos = len(a.history)
+		return
+	}
+	// Pasting works on an empty command line too.
+	if name == "Ctrl+V" || name == "Shift+Insert" {
 		a.cmd.HandleKey(ev, a)
 		a.histPos = len(a.history)
 		return

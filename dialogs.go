@@ -320,9 +320,14 @@ func (e *LineEdit) HandleKey(ev *tcell.EventKey, a *App) bool {
 			a.setClipboard(s)
 			e.deleteSelection()
 		}
-	case "Ctrl+V", "Insert":
-		if a != nil && a.clipboard != "" {
-			e.insert(strings.SplitN(a.clipboard, "\n", 2)[0])
+	case "Ctrl+V", "Insert", "Shift+Insert":
+		if a == nil {
+			break
+		}
+		if s := a.pasteText(); s != "" {
+			e.insert(firstLine(s))
+		} else {
+			a.screen.GetClipboard()
 		}
 	default:
 		if ev.Key() == tcell.KeyRune && ev.Modifiers()&(tcell.ModCtrl|tcell.ModAlt|tcell.ModMeta) == 0 {

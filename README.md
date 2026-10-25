@@ -31,7 +31,10 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   panel. With text in it, `Enter` runs it in the active panel's directory,
   `Esc` clears it. `Ctrl+Enter` (or `Ctrl+J`) inserts the current entry's name,
   `Alt+Enter` its full path. `cd <dir>` moves the panel instead of spawning a
-  shell. `Ctrl+E`/`Ctrl+X` step through the history.
+  shell. `Ctrl+E`/`Ctrl+X` step through the history. `Ctrl+V` (or
+  `Shift+Insert`) pastes the first line of the system clipboard, read natively
+  on Windows and through `pbpaste`, `wl-paste`, `xclip` or `xsel` elsewhere;
+  the same keys paste in dialogs and the editor.
 - **Console view.** A command run from the command line has its output
   captured, coloured, into a console shown while it runs; the prompt returns
   when it has terminated. As in FAR, the panels come back afterwards if they

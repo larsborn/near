@@ -656,8 +656,8 @@ func (e *Editor) HandleKey(a *App, ev *tcell.EventKey) {
 			e.deleteSelection()
 		}
 	case "Ctrl+V", "Shift+Insert":
-		if a.clipboard != "" {
-			e.insert(a.clipboard, false)
+		if s := a.pasteText(); s != "" {
+			e.insert(s, false)
 		} else {
 			a.screen.GetClipboard()
 		}

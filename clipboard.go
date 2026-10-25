@@ -37,3 +37,21 @@ func clipboardWriter() *exec.Cmd {
 	}
 	return nil
 }
+
+// pasteText returns what Ctrl+V should insert: the system clipboard when it
+// can be read and holds text, otherwise near's own clipboard.
+func (a *App) pasteText() string {
+	if a.readClip != nil {
+		if s, ok := a.readClip(); ok && s != "" {
+			return s
+		}
+	}
+	return a.clipboard
+}
+
+// firstLine returns text up to the first line break, without a carriage
+// return, for pasting into single-line inputs.
+func firstLine(s string) string {
+	s = strings.SplitN(s, "\n", 2)[0]
+	return strings.TrimRight(s, "\r")
+}

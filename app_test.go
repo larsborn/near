@@ -38,6 +38,7 @@ func testApp(t *testing.T) (*App, string) {
 	}
 	s.SetSize(120, 40)
 	a := newApp(cfg, s)
+	a.readClip = nil // tests must not see the developer's clipboard
 	a.setup(data, root)
 	return a, data
 }
