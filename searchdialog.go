@@ -14,6 +14,7 @@ type SearchDialog struct {
 	edit    *LineEdit
 	results []string
 	total   int
+	capped  bool
 	cursor  int
 	top     int
 	last    string
@@ -36,7 +37,7 @@ func (d *SearchDialog) update(a *App) {
 	}
 	d.last = q
 	d.indexN = a.index.Count()
-	d.results, d.total = a.index.Search(q, a.cfg.SearchMaxResults)
+	d.results, d.total, d.capped = a.index.Search(q, a.cfg.SearchMaxResults)
 	d.cursor, d.top = 0, 0
 }
 
@@ -157,6 +158,8 @@ func (d *SearchDialog) Draw(a *App) {
 		status = "index is empty, check search_roots in " + a.cfg.path
 	case d.last == "":
 		status = fmt.Sprintf("%s names, built %s, %s", groupDigits(int64(a.index.Count())), a.index.BuiltAt().Format("15:04"), a.index.WatchStatus())
+	case d.capped:
+		status = fmt.Sprintf("%s+ matches, showing first %d", groupDigits(int64(d.total)), len(d.results))
 	case d.total > len(d.results):
 		status = fmt.Sprintf("%s matches, showing first %d", groupDigits(int64(d.total)), len(d.results))
 	default:

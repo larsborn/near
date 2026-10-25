@@ -810,7 +810,7 @@ func runWatcherTest(t *testing.T, mk func() (fsWatcher, error)) {
 		t.Fatalf("watch status = %q", st)
 	}
 	found := func(q string, n int) func() bool {
-		return func() bool { _, total := a.index.Search(q, 10); return total == n }
+		return func() bool { _, total, _ := a.index.Search(q, 10); return total == n }
 	}
 	// New file.
 	os.WriteFile(filepath.Join(data, "fresh.log"), []byte("x"), 0o644)
@@ -846,7 +846,7 @@ func runWatcherTest(t *testing.T, mk func() (fsWatcher, error)) {
 	os.MkdirAll(filepath.Join(data, "node_modules", "pkg"), 0o755)
 	os.WriteFile(filepath.Join(data, "node_modules", "pkg", "index.js"), []byte("x"), 0o644)
 	time.Sleep(700 * time.Millisecond)
-	if _, total := a.index.Search("index.js", 10); total != 0 {
+	if _, total, _ := a.index.Search("index.js", 10); total != 0 {
 		t.Fatal("excluded directory content was indexed")
 	}
 }
@@ -874,7 +874,7 @@ func TestIndexCacheRoundTrip(t *testing.T) {
 	if other.Count() != a.index.Count() {
 		t.Fatalf("cache count %d, want %d", other.Count(), a.index.Count())
 	}
-	if res, _ := other.Search("deep", 10); len(res) != 1 {
+	if res, _, _ := other.Search("deep", 10); len(res) != 1 {
 		t.Fatalf("search after cache load: %v", res)
 	}
 }

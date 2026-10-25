@@ -39,6 +39,11 @@ type Index struct {
 	dirty     bool
 	lastSave  time.Time
 
+	flat        *flatIndex // fast search view, rebuilt in the background
+	flatBusy    bool
+	flatAgain   bool
+	flatCompact bool // a compaction is scheduled
+
 	newWatcher func() (fsWatcher, error)
 	watcher    fsWatcher
 	watchStop  chan struct{}
@@ -213,6 +218,58 @@ func (ix *Index) Build() {
 	ix.dirs, ix.count, ix.err, ix.builtAt = dirs, count, firstErr, time.Now()
 	ix.dirty = true
 	ix.mu.Unlock()
+	ix.rebuildFlat()
+}
+
+// rebuildFlat builds the flat search view from the current map, in the
+// calling goroutine. If a build is already running the request is queued.
+func (ix *Index) rebuildFlat() {
+	ix.mu.Lock()
+	if ix.flatBusy {
+		ix.flatAgain = true
+		ix.mu.Unlock()
+		return
+	}
+	ix.flatBusy = true
+	ix.mu.Unlock()
+	for {
+		ix.mu.RLock()
+		f := buildFlatIndex(ix.dirs, ix.count)
+		ix.mu.RUnlock()
+		ix.mu.Lock()
+		ix.flat = f
+		again := ix.flatAgain
+		ix.flatAgain = false
+		if !again {
+			ix.flatBusy = false
+			ix.mu.Unlock()
+			return
+		}
+		ix.mu.Unlock()
+	}
+}
+
+// flatCompactAfter is how long after a change the flat view is rebuilt to
+// drop entries that vanished; new entries are appended immediately.
+const flatCompactAfter = 30 * time.Second
+
+// scheduleFlat compacts the flat view in the background a while after the
+// last change, so bursts of watcher events cause one rebuild.
+func (ix *Index) scheduleFlat() {
+	ix.mu.Lock()
+	if ix.flatCompact {
+		ix.mu.Unlock()
+		return
+	}
+	ix.flatCompact = true
+	ix.mu.Unlock()
+	go func() {
+		time.Sleep(flatCompactAfter)
+		ix.mu.Lock()
+		ix.flatCompact = false
+		ix.mu.Unlock()
+		ix.rebuildFlat()
+	}()
 }
 
 // RebuildAsync rebuilds in the background, saves the cache, restarts the
@@ -324,40 +381,52 @@ func (ix *Index) LoadCache() error {
 	ix.mu.Lock()
 	ix.dirs, ix.count, ix.builtAt, ix.dirty = c.Dirs, c.Count, c.BuiltAt, false
 	ix.mu.Unlock()
+	go ix.rebuildFlat()
 	return nil
 }
 
 // ---------------------------------------------------------------- search
 
-// Search matches every whitespace-separated term of query. A term matches
-// the base name; if it contains a path separator it matches the full path.
-// Terms with * ? or [ are glob patterns against the base name. Up to max
-// results are returned, sorted, together with the total number of matches.
-func (ix *Index) Search(query string, max int) ([]string, int) {
+// matcher is one query term.
+type matcher struct {
+	s    string
+	path bool // contains a separator: matches the full path
+	glob bool // contains * ? [: glob against the base name
+}
+
+func parseTerms(query string) []matcher {
 	terms := strings.Fields(strings.ToLower(query))
-	if len(terms) == 0 {
-		return nil, 0
-	}
-	type matcher struct {
-		s    string
-		path bool
-		glob bool
-	}
 	ms := make([]matcher, 0, len(terms))
-	needPath := false
 	for _, t := range terms {
-		m := matcher{
+		ms = append(ms, matcher{
 			s:    strings.ReplaceAll(t, `\`, `/`),
 			path: strings.ContainsAny(t, `/\`),
 			glob: strings.ContainsAny(t, "*?["),
-		}
-		needPath = needPath || m.path
-		ms = append(ms, m)
+		})
+	}
+	return ms
+}
+
+// Search matches every whitespace-separated term of query. A term matches
+// the base name; if it contains a path separator it matches the full path.
+// Terms with * ? or [ are glob patterns against the base name. Up to max
+// results are returned, sorted, with the number of matches counted and
+// whether counting stopped at searchCountCap. The flat view is used when
+// it exists; right after a build the slower map scan serves.
+func (ix *Index) Search(query string, max int) (out []string, total int, capped bool) {
+	ms := parseTerms(query)
+	if len(ms) == 0 {
+		return nil, 0, false
 	}
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
-	var out []string
-	total := 0
+	if ix.flat != nil {
+		return ix.flat.search(ms, ix.dirs, max)
+	}
+	needPath := false
+	for _, m := range ms {
+		needPath = needPath || m.path
+	}
 	var buf []byte
 	for dir, names := range ix.dirs {
 		for _, name := range names {
@@ -395,11 +464,15 @@ func (ix *Index) Search(query string, max int) ([]string, int) {
 				if len(out) < max {
 					out = append(out, filepath.Join(dir, name))
 				}
+				if total >= searchCountCap {
+					sort.Strings(out)
+					return out, total, true
+				}
 			}
 		}
 	}
 	sort.Strings(out)
-	return out, total
+	return out, total, false
 }
 
 // containsFold reports whether s contains the lowercase term, ignoring
@@ -611,9 +684,14 @@ func (ix *Index) apply(batch []fsEvent) {
 	sort.Strings(creates) // parents before children
 
 	ix.mu.Lock()
+	var adds []flatAdd
 	var prefixes []string
 	for p := range removes {
-		if ix.removeNameLocked(p) {
+		isDir, moved := ix.removeNameLocked(p)
+		if moved != nil {
+			adds = append(adds, *moved)
+		}
+		if isDir {
 			prefixes = append(prefixes, p+string(filepath.Separator))
 		}
 	}
@@ -641,13 +719,19 @@ func (ix *Index) apply(batch []fsEvent) {
 			if ix.exclude.skipDir(p) {
 				continue
 			}
-			newDirs = append(newDirs, ix.addTreeLocked(p)...)
-		} else {
-			ix.addNameLocked(p)
+			dirs, treeAdds := ix.addTreeLocked(p)
+			newDirs = append(newDirs, dirs...)
+			adds = append(adds, treeAdds...)
+		} else if fa, ok := ix.addNameLocked(p); ok {
+			adds = append(adds, fa)
 		}
 	}
 	ix.dirty = true
+	if ix.flat != nil {
+		ix.flat.appendEntries(adds)
+	}
 	ix.mu.Unlock()
+	ix.scheduleFlat()
 
 	if w := ix.currentWatcher(); w != nil && !w.Recursive() {
 		for _, d := range newDirs {
@@ -665,39 +749,53 @@ func (ix *Index) currentWatcher() fsWatcher {
 	return ix.watcher
 }
 
-// removeNameLocked drops p from its parent's names and reports whether p
-// is a directory key (whose subtree the caller must drop too).
-func (ix *Index) removeNameLocked(p string) bool {
+// removeNameLocked drops p from its parent's names (swapping the last name
+// into its slot so the other positions stay valid for the flat view) and
+// reports whether p is a directory key (whose subtree the caller must drop
+// too). The moved name, if any, is returned so the flat view can relearn
+// its position.
+func (ix *Index) removeNameLocked(p string) (isDir bool, moved *flatAdd) {
 	parent, name := filepath.Dir(p), filepath.Base(p)
 	if names, ok := ix.dirs[parent]; ok {
 		for i, n := range names {
 			if n == name {
-				ix.dirs[parent] = append(names[:i], names[i+1:]...)
+				last := len(names) - 1
+				if i != last {
+					names[i] = names[last]
+					moved = &flatAdd{dir: parent, name: names[i], nameIx: int32(i)}
+				}
+				ix.dirs[parent] = names[:last]
 				ix.count--
 				break
 			}
 		}
 	}
-	_, isDir := ix.dirs[p]
-	return isDir
+	_, isDir = ix.dirs[p]
+	return isDir, moved
 }
 
-func (ix *Index) addNameLocked(p string) {
+// addNameLocked adds p under its parent and returns the flat entry to
+// append, or false if it was already there.
+func (ix *Index) addNameLocked(p string) (flatAdd, bool) {
 	parent, name := filepath.Dir(p), filepath.Base(p)
 	for _, n := range ix.dirs[parent] {
 		if n == name {
-			return
+			return flatAdd{}, false
 		}
 	}
 	ix.dirs[parent] = append(ix.dirs[parent], name)
 	ix.count++
+	return flatAdd{dir: parent, name: name, nameIx: int32(len(ix.dirs[parent]) - 1)}, true
 }
 
 // addTreeLocked indexes a new directory and everything below it, returning
-// the directories added.
-func (ix *Index) addTreeLocked(root string) []string {
+// the directories added and the flat entries to append.
+func (ix *Index) addTreeLocked(root string) ([]string, []flatAdd) {
 	var added []string
-	ix.addNameLocked(root)
+	var adds []flatAdd
+	if fa, ok := ix.addNameLocked(root); ok {
+		adds = append(adds, fa)
+	}
 	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if d != nil && d.IsDir() {
@@ -715,9 +813,11 @@ func (ix *Index) addTreeLocked(root string) []string {
 			added = append(added, p)
 		}
 		if p != root {
-			ix.addNameLocked(p)
+			if fa, ok := ix.addNameLocked(p); ok {
+				adds = append(adds, fa)
+			}
 		}
 		return nil
 	})
-	return added
+	return added, adds
 }

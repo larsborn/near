@@ -18,7 +18,7 @@ var applyTokens = [][2]string{
 	{"!.!", "name with extension"},
 	{"!", "name without extension"},
 	{"!~", "extension"},
-	{"!\\", "directory, with trailing separator"},
+	{"!\\", "directory with separator"},
 	{"!/", "directory without separator"},
 	{"!:", "drive"},
 	{"!&", "all selected names"},

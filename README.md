@@ -253,7 +253,11 @@ search_watch_max_dirs = 100000 # cap for per-directory watches (Linux, macOS)
 ```
 
 The index maps each directory to its names, so a change is a small update
-rather than a rescan. Changes arrive through a watcher:
+rather than a rescan. Searching uses a compact view of all names in one
+lowercased buffer, scanned with the vectorised substring search of the Go
+runtime: on a five-million-name index a query takes a few milliseconds to a
+few tens of milliseconds. Counting stops at 10,000 matches ("10,000+"), so
+even one-letter queries return at once. Changes arrive through a watcher:
 
 | Platform   | Mechanism                                     | Scope                                                      |
 | ---------- | --------------------------------------------- | ---------------------------------------------------------- |
