@@ -7,6 +7,27 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+func TestBandHasNoBlankRowAbovePrompt(t *testing.T) {
+	a, _ := testApp(t)
+	typeText(a, "echo last-line")
+	key(a, "Enter")
+	waitCommand(t, a)
+	if a.hideAll {
+		t.Fatal("panels should be back")
+	}
+	rows := strings.Split(screenText(a), "\n")
+	above := rows[a.h-bottomRows] // the status row, which the band takes over
+	if !strings.Contains(above, "last-line") {
+		t.Fatalf("the row above the prompt should hold the last output, got %q", above)
+	}
+	// With a status message the row shows the message instead.
+	a.setStatus("note")
+	a.draw()
+	if !strings.Contains(strings.Split(screenText(a), "\n")[a.h-bottomRows], "note") {
+		t.Fatal("status message should take the row back")
+	}
+}
+
 func TestConsoleViewKeys(t *testing.T) {
 	a, data := testApp(t)
 	typeText(a, "echo one")

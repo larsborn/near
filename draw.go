@@ -41,7 +41,10 @@ func (a *App) drawAll() {
 	// The panel area is blank where no panel is drawn: hidden panels, and
 	// the rows below a panel made shorter with Ctrl+Down.
 	a.fill(0, 0, a.w, ph, a.theme.Cmd)
-	consoleOnly := a.hideAll && a.status == ""
+	// With no status message the console (full view or the band under the
+	// panels) also takes the status row, so the prompt sits directly under
+	// the last output line.
+	consoleOnly := a.status == "" && (a.hideAll || a.consoleBand() > 0)
 	if a.hideAll {
 		// Without a message to show, the console also takes the status row so
 		// that the prompt sits directly under the output, like a shell.
@@ -60,7 +63,12 @@ func (a *App) drawAll() {
 		}
 		// The tail of the last command's output stays visible under the panels.
 		if band := a.consoleBand(); band > 0 {
-			a.drawConsole(a.panelArea()-band, band, false)
+			rows := band
+			if consoleOnly {
+				rows++ // the status row too
+				a.fill(0, ph, a.w, 1, a.theme.Cmd)
+			}
+			a.drawConsole(a.panelArea()-band, rows, false)
 		}
 	}
 	if !consoleOnly {
@@ -346,16 +354,7 @@ func (a *App) drawStatus() {
 	if a.status == "" {
 		a.status = a.transferStatus()
 	}
-	right := ""
-	switch {
-	case a.index.Building():
-		right = fmt.Sprintf(" indexing… %s ", groupDigits(a.index.progress.Load()))
-	case a.index.Count() > 0:
-		right = fmt.Sprintf(" index: %s names ", groupDigits(int64(a.index.Count())))
-	}
-	rw := runewidth.StringWidth(right)
-	a.print(1, y, a.w-2-rw, st, fitLeft(a.status, a.w-2-rw))
-	a.print(a.w-rw, y, rw, th.Status, right)
+	a.print(1, y, a.w-2, st, fitLeft(a.status, a.w-2))
 }
 
 func (a *App) drawKeyBar() {

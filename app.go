@@ -223,7 +223,6 @@ func (a *App) saveSession() {
 func (a *App) startIndex() {
 	a.index.Configure(a.cfg, a.screen)
 	if err := a.index.LoadCache(); err == nil {
-		a.setStatus(fmt.Sprintf("Search index loaded (%s names, built %s)", groupDigits(int64(a.index.Count())), a.index.BuiltAt().Format("2006-01-02 15:04")))
 		if !a.cfg.SearchIndexOnStart && a.cfg.SearchWatch {
 			a.index.StartWatch()
 		}
@@ -235,10 +234,8 @@ func (a *App) startIndex() {
 
 func (a *App) rebuildIndex() {
 	if a.index.Building() {
-		a.setStatus("Index build already running")
 		return
 	}
-	a.setStatus("Rebuilding search index…")
 	a.index.RebuildAsync()
 }
 
@@ -263,10 +260,9 @@ func (a *App) handleEvent(ev tcell.Event) {
 	case *tcell.EventResize:
 		a.screen.Sync()
 	case *EventIndexDone:
+		// The search dialog shows the index state; only failures are reported.
 		if err := a.index.Err(); err != nil {
-			a.setErr(fmt.Errorf("index: %v", err))
-		} else {
-			a.setStatus(fmt.Sprintf("Search index ready: %s names, %s", groupDigits(int64(a.index.Count())), a.index.WatchStatus()))
+			a.setErr(fmt.Errorf("search index: %v", err))
 		}
 	case *EventIndexChanged:
 		// The index was updated by the watcher; redraw picks it up.
