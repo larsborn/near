@@ -50,7 +50,8 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
 - **Esc goes to the parent directory.** Every key is configurable.
 - **Everything-like search** (`Alt+F7` / `Ctrl+F`): an in-memory index of every
   file name on all fixed drives by default (`search_roots`, where `"*"` means
-  the fixed drives and other entries are directories), built in the
+  the fixed drives, without network, removable and subst ones, and other
+  entries are directories), built in the
   background, cached between runs and kept current by a filesystem watcher. Words match the name, a term with
   `/` matches the path, `*` and `?` are wildcards. `Enter` jumps to the file,
   `Ctrl+T` opens it in a new tab.

@@ -292,8 +292,8 @@ time_format = "15:04"              # ... and the Time column
 notes_file = ".near-notes"         # per-directory hidden notes file (JSON)
 
 # Everything-like search: directories to index and what to skip. "*" stands
-# for every fixed drive (network and removable ones are left out); any other
-# entry is a directory, e.g. ["~", "D:\\", "/srv/data"]. In search_exclude a
+# for every fixed drive (network, removable and subst drives are left out);
+# any other entry is a directory, e.g. ["~", "D:\\", "/srv/data"]. In search_exclude a
 # plain name skips every directory of that name; an entry with a path
 # separator skips that exact directory. The index is rebuilt in the
 # background on start (see search_index_on_start) and with Ctrl+R in the
