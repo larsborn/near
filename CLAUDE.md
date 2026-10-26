@@ -73,9 +73,10 @@ cross-compiles every release target. A `v*` tag triggers `release.yml`, which bu
 for linux/darwin/windows/freebsd with `-X main.version=<tag>` and publishes them with
 `gh release create`. Releases are cut by tagging: `git tag -a v0.0.2 -m ... && git push --tags`.
 
-The developer's live config is `%APPDATA%\near\config.toml`. Whenever a default key binding
-changes it has been regenerated with `near -defaults` (after checking it was still the
-untouched generated file); `config.toml.bak` next to it is the first version.
+The developer's live config is `%APPDATA%\near\config.toml` (Windows) and is the user's file:
+when a default changes, only the affected line is edited there, on request, never the whole
+file regenerated (`decisions/live-config-not-regenerated.md`); `config.toml.bak` next to it is
+the first version. `menus.toml` in the same directory holds menus edited inside NEAR.
 
 ## Architecture
 

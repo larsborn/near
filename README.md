@@ -81,7 +81,7 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   the name list in the editor instead. Swaps and chains are handled safely.
 - **Notes on files** (`Ctrl+N`): stored in a hidden `.near-notes` JSON file per
   directory, shown below the listing, flagged by `*` in the name column, and
-  following renames, copies and moves made within near.
+  following renames, copies and moves made within NEAR.
 - **Quick launch menu** (`F2`) and any number of **custom menus** (`F9` lists
   them, each may have its own key, menus nest). Items run shell commands with
   placeholders for the current file, the selection and both directories.
