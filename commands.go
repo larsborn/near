@@ -61,6 +61,31 @@ func (a *App) shell() string {
 	return defaultShell()
 }
 
+// shellScript returns what the shell gets after -c: the command line,
+// preceded by sourcing shell_rc when one is configured, so that aliases and
+// functions from that file are available. Non-interactive bash does not
+// expand aliases unless told to, and an alias only takes effect on the line
+// after its definition, hence the option and the line break. The working
+// directory is restored afterwards: rc files written for a terminal may cd.
+func (a *App) shellScript(cmdline string) string {
+	rc := strings.TrimSpace(a.cfg.ShellRC)
+	if rc == "" || runtime.GOOS == "windows" {
+		return cmdline
+	}
+	if strings.HasPrefix(rc, "~") {
+		if home, err := os.UserHomeDir(); err == nil {
+			rc = home + rc[1:]
+		}
+	}
+	if _, err := os.Stat(rc); err != nil {
+		a.setErr(fmt.Errorf("shell_rc: %v", err))
+		return cmdline
+	}
+	q := "'" + strings.ReplaceAll(rc, "'", `'\''`) + "'"
+	return "__near_pwd=$PWD; command -v shopt >/dev/null 2>&1 && shopt -s expand_alias" + "es; . " + q +
+		"; cd \"$__near_pwd\"; unset __near_pwd\n" + cmdline
+}
+
 func (a *App) editor() string {
 	for _, e := range []string{a.cfg.Editor, os.Getenv("VISUAL"), os.Getenv("EDITOR")} {
 		if strings.TrimSpace(e) != "" {
@@ -74,7 +99,7 @@ func (a *App) editor() string {
 // terminal is handed over to the command; with wait the user must press
 // Enter afterwards so output stays readable.
 func (a *App) runShell(cmdline, cwd string, wait, detach bool) {
-	cmd := shellCommand(a.shell(), cmdline)
+	cmd := shellCommand(a.shell(), a.shellScript(cmdline))
 	cmd.Dir = cwd
 	if detach {
 		if err := cmd.Start(); err != nil {

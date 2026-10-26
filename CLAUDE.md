@@ -144,7 +144,9 @@ of the panels, and it stays on. In that view Tab is path completion (`complete.g
 match filled in, second Tab on the same text lists candidates in the console). Ctrl+C → `killTree` (platform: taskkill /T or SIGTERM to the
 process group). Programs in `interactive_commands`, Shift+Enter, menu items and the external
 editor use `runShell` instead, which suspends tcell, runs via `shellCommand` (platform file;
-`cmd /S /C` with raw `CmdLine` on Windows, `sh -c` elsewhere), optionally waits for Enter, resumes. `editFileThen(path, external, done)` is the single entry for editing — the
+`cmd /S /C` with raw `CmdLine` on Windows, `sh -c` elsewhere), optionally waits for Enter, resumes.
+Both paths pass the command line through `shellScript`, which prefixes `. <shell_rc>` (plus
+`shopt -s expand_aliases` for bash) on its own line when `shell_rc` is set, so aliases work. `editFileThen(path, external, done)` is the single entry for editing — the
 built-in `Editor` dialog calls `done` from its close callback, the external editor blocks, so
 callers (mass rename's F4 flow) must not assume synchronous completion.
 

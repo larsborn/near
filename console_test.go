@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -186,5 +189,43 @@ func TestConsoleScroll(t *testing.T) {
 	key(a, "End")
 	if a.console.scroll != 0 {
 		t.Fatal("End should scroll back to the bottom")
+	}
+}
+
+// Aliases and functions from shell_rc are available to console commands.
+func TestConsoleShellRC(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX shells only")
+	}
+	a, root := testApp(t)
+	rc := filepath.Join(root, "rc.sh")
+	if err := os.WriteFile(rc, []byte("alias zzalias='echo via alias'\nzzfunc() { echo via function; }\ncd /\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.cfg.ShellRC = rc
+	for _, sh := range []string{"sh", "bash"} {
+		if _, err := exec.LookPath(sh); err != nil {
+			continue
+		}
+		a.cfg.Shell = sh
+		typeText(a, "zzalias; zzfunc; pwd")
+		key(a, "Enter")
+		waitCommand(t, a)
+		out := a.console.Text()
+		if !strings.Contains(out, "\nvia alias") || !strings.Contains(out, "\nvia function") {
+			t.Fatalf("%s: console = %q", sh, out)
+		}
+		// The rc file's cd must not move the command out of the panel directory.
+		if !strings.Contains(out, "\n"+a.tab().Path+"\n") && !strings.HasSuffix(out, "\n"+a.tab().Path) {
+			t.Fatalf("%s: command did not run in the panel directory: %q", sh, out)
+		}
+	}
+	// A missing file is reported once and the command still runs.
+	a.cfg.ShellRC = filepath.Join(root, "missing.sh")
+	typeText(a, "echo still runs")
+	key(a, "Enter")
+	waitCommand(t, a)
+	if !strings.Contains(a.console.Text(), "\nstill runs") {
+		t.Fatalf("console = %q", a.console.Text())
 	}
 }

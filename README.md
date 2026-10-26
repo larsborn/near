@@ -207,6 +207,16 @@ The same directory holds `state.json` (session, histories, panel sizes) and
 `index.gob` (search cache). `near -defaults` prints the current defaults,
 useful after an upgrade changed the default keys.
 
+Commands typed at the command line run through `$SHELL -c` (`shell` in the
+config), which is a non-interactive shell: `~/.bashrc` returns at its
+"not running interactively" guard, so aliases and functions defined there are
+missing. Set `shell_rc` to a file without that guard and NEAR sources it
+before every command:
+
+```toml
+shell_rc = "~/.bash_aliases"
+```
+
 ### Keys
 
 ```toml

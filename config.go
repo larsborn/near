@@ -40,6 +40,7 @@ type Bookmark struct {
 type Config struct {
 	Editor              string              `toml:"editor"`
 	Shell               string              `toml:"shell"`
+	ShellRC             string              `toml:"shell_rc"`
 	Theme               string              `toml:"theme"`
 	ShowHidden          bool                `toml:"show_hidden"`
 	Mouse               bool                `toml:"mouse"`
@@ -278,6 +279,9 @@ editor = ""          # external editor (Ctrl+F4): empty = $VISUAL, $EDITOR, then
 internal_editor = true   # F4 opens the built-in FAR-like editor; false = external editor
 editor_tab_size = 4
 shell = ""           # empty: $SHELL or sh (cmd on Windows)
+shell_rc = ""        # file sourced before every command, for aliases and functions (POSIX shells only):
+                     # commands run non-interactively, so ~/.bashrc is skipped by its own guard; point this
+                     # at a file without that guard, e.g. "~/.bash_aliases". Ignored on Windows.
 theme = "far"        # "far" (blue, FAR-like) or "plain" (terminal colours)
 show_hidden = true   # list dot files and files with the hidden attribute (Ctrl+F10 toggles)
 mouse = true         # click to move the cursor, double-click to open, right-click for the context menu, wheel to scroll

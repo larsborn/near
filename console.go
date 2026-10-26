@@ -398,7 +398,7 @@ func (a *App) runInConsole(cmdline, cwd string) {
 		a.setErr(fmt.Errorf("a command is still running (Ctrl+C stops it)"))
 		return
 	}
-	cmd := shellCommand(a.shell(), cmdline)
+	cmd := shellCommand(a.shell(), a.shellScript(cmdline))
 	cmd.Dir = cwd
 	cmd.Env = consoleEnv(a.w, a.h-bottomRows)
 	setProcessGroup(cmd)
