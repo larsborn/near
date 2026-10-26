@@ -161,6 +161,10 @@ with one watch per directory, capped by `search_watch_max_dirs`. Events are batc
 applied as remove+add (idempotent), overflow triggers a rebuild. On Windows the tests exercise
 both backends (`TestWatcherNative`, `TestWatcherPortable`); the fsnotify path is what Linux runs.
 Cache is a gob of the map in the config dir; an old-format cache is rejected and rebuilt.
+The cache also stores a change-journal position per volume (`journalPos`); on Windows
+`startIndex` runs `Index.CatchUp` (`usn_windows.go`: unprivileged USN journal read, which
+strips names, so changed *parent directories* are resolved by file id and reconciled with
+`syncDirs` through `apply`) instead of rebuilding; any unusable journal → `RebuildAsync`.
 Searching goes through `flatIndex` (`flatindex.go`): all names lowercased in one byte buffer
 scanned with `bytes.Index`, plus parallel `off/dirIx/nameIx` arrays; the map stays the source of
 truth (results are verified against it, so stale entries are skipped). The view is built after

@@ -27,4 +27,6 @@ and is not used; the initial build stays the walk. Linux and macOS have no equiv
 journal and get an age-based start-up rebuild instead.
 
 ## Where
-`usn_windows.go` (planned), `search.go` cache and startIndex, `todo/ntfs-change-journal.md`.
+`usn_windows.go`, `search.go` CatchUp/syncDirs and the cache's journal positions,
+`app.go` startIndex, `todo/ntfs-change-journal.md` (live tailing and the age-based
+rebuild for other platforms are still open there).

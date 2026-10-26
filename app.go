@@ -232,13 +232,28 @@ func (a *App) saveSession() {
 
 func (a *App) startIndex() {
 	a.index.Configure(a.cfg, a.screen)
-	if err := a.index.LoadCache(); err == nil {
-		if !a.cfg.SearchIndexOnStart && a.cfg.SearchWatch {
-			a.index.StartWatch()
+	ix := a.index
+	if err := ix.LoadCache(); err == nil {
+		if a.cfg.SearchWatch {
+			ix.StartWatch()
 		}
+		if !a.cfg.SearchIndexOnStart {
+			return
+		}
+		// Catch up from the change journals where possible; a full rebuild
+		// only when a volume's journal cannot be used.
+		go func() {
+			if _, err := ix.CatchUp(); err != nil {
+				ix.RebuildAsync()
+				return
+			}
+			_ = ix.saveCache()
+			ix.post(&EventIndexDone{})
+		}()
+		return
 	}
 	if a.cfg.SearchIndexOnStart {
-		a.index.RebuildAsync()
+		ix.RebuildAsync()
 	}
 }
 

@@ -20,6 +20,10 @@ Measured on 2026-10-25 20:29 with the new default on the developer's box (C: and
 7,697,088 names in 832,109 directories, built in 96 s, cache 283 MB, and the process sat at
 3.2 GB private memory / 3.9 GB working set after the build. That is the number to bring down.
 
+Since 2026-10-26 a start on Windows no longer rebuilds: the index catches up from the NTFS
+change journal (`todo/ntfs-change-journal.md`), so the start-up churn is gone there; the
+footprint of the loaded index itself is unchanged.
+
 ## Ideas
 - Drop the per-directory `[]string` slices in favour of the flat view as the primary store
   (the map is now only needed for watcher updates and result verification).

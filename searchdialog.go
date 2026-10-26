@@ -244,7 +244,13 @@ func (d *SearchDialog) stateLines(a *App) []string {
 	case d.busy:
 		return []string{"Searching…"}
 	case d.edit.String() == "":
-		return []string{fmt.Sprintf("Type to search %s names in %s.", groupDigits(int64(ix.Count())), rootsLabel(ix.Roots()))}
+		lines := []string{fmt.Sprintf("Type to search %s names in %s.", groupDigits(int64(ix.Count())), rootsLabel(ix.Roots()))}
+		if ix.CatchingUp() {
+			lines = append(lines, "Catching up with the change journal…")
+		} else if note := ix.CatchUpNote(); note != "" {
+			lines = append(lines, "The index "+note+".")
+		}
+		return lines
 	case d.last == d.edit.String():
 		return []string{fmt.Sprintf("No matches for %q.", d.last)}
 	}

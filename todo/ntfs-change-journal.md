@@ -11,13 +11,18 @@ lets the next start apply only the records since then: current within a second, 
 Decision: `decisions/ntfs-journal-in-process-not-a-service.md` (in-process, unprivileged,
 no background service).
 
+## Status (2026-10-26)
+Step 1 is done (`usn_windows.go`, `Index.CatchUp`, `TestJournalCatchUp`). Findings that
+changed the plan: the unprivileged read works on a volume handle opened with FILE_TRAVERSE,
+input READ_USN_JOURNAL_DATA_V1 with record versions 2..2, start USN on a record boundary;
+but it returns every record **without its file name**. So records are only used for their
+parent reference number: the parent directory is resolved with OpenFileById and re-read,
+and its listing reconciled with the index (`syncDirs`). Deleted directories cannot be
+resolved; their own record names the grandparent, whose re-read drops the subtree.
+The first start after this change still rebuilds once (old caches carry no positions).
+
 ## Plan
-1. **Catch-up at start** (first): the cache records, per NTFS volume among the roots, the
-   journal ID and the next USN as of the last save. `startIndex` queries the journal; if the
-   ID matches and the stored USN is still inside the journal, the records since then are read
-   (FSCTL_READ_UNPRIVILEGED_USN_JOURNAL, V2 records only) and applied through the existing
-   `Index.apply` as create/remove events. Otherwise (journal recreated, wrapped, disabled, or
-   non-NTFS volume) the full rebuild runs as today.
+1. ~~Catch-up at start~~ done, see above.
 2. **Live tailing** (second): replace ReadDirectoryChangesW on NTFS volumes by tailing the
    journal so the saved USN is exact and overflow cannot happen. Until then the directory
    watcher stays, and the USN stored at save time may miss a change in the sub-second gap

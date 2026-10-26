@@ -305,9 +305,11 @@ notes_file = ".near-notes"         # per-directory hidden notes file (JSON)
 # for every fixed drive (network, removable and subst drives are left out);
 # any other entry is a directory, e.g. ["~", "D:\\", "/srv/data"]. In search_exclude a
 # plain name skips every directory of that name; an entry with a path
-# separator skips that exact directory. The index is rebuilt in the
-# background on start (see search_index_on_start) and with Ctrl+R in the
-# search dialog.
+# separator skips that exact directory. On start (see search_index_on_start)
+# the index catches up from the NTFS change journal of each volume, without
+# administrator rights; it is rebuilt from scratch only when a journal cannot
+# be used (recreated, wrapped after a long absence, disabled, non-NTFS, or on
+# Linux and macOS). Ctrl+R in the search dialog always rebuilds.
 search_roots = ["*"]
 search_exclude = [".git", "node_modules", "__pycache__", ".cache", "/proc", "/sys", "/dev", "/run"]
 search_max_results = 500

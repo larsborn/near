@@ -30,8 +30,11 @@ type Index struct {
 
 	building atomic.Bool
 	progress atomic.Int64
-	walking  atomic.Value // directory the build is in (string)
-	lastPost time.Time    // last progress event, build goroutine only
+	catching atomic.Bool           // a change-journal catch-up is running
+	journals map[string]journalPos // where the index stands per volume ("C:")
+	catchUp  string                // note about the last catch-up, for the search dialog
+	walking  atomic.Value          // directory the build is in (string)
+	lastPost time.Time             // last progress event, build goroutine only
 
 	roots     []string
 	exclude   excludeSet
@@ -207,6 +210,9 @@ func (ix *Index) Build() {
 	ix.mu.RLock()
 	roots, exclude := append([]string{}, ix.roots...), ix.exclude
 	ix.mu.RUnlock()
+	// Where the change journals stand before the walk: changes made during
+	// the walk are then replayed by the next catch-up.
+	marks := journalPositions(roots)
 
 	dirs := map[string][]string{}
 	count := 0
@@ -248,6 +254,7 @@ func (ix *Index) Build() {
 	}
 	ix.mu.Lock()
 	ix.dirs, ix.count, ix.err, ix.builtAt = dirs, count, firstErr, time.Now()
+	ix.journals, ix.catchUp = marks, ""
 	ix.dirty = true
 	ix.mu.Unlock()
 	ix.rebuildFlat()
@@ -356,20 +363,22 @@ func (ix *Index) Close() {
 // ---------------------------------------------------------------- cache
 
 type indexCache struct {
-	BuiltAt time.Time
-	Dirs    map[string][]string
-	Count   int
+	BuiltAt  time.Time
+	Dirs     map[string][]string
+	Count    int
+	Journals map[string]journalPos // change-journal positions the map is current to
 }
 
 var errOldCache = errors.New("index cache has an old format")
 
 func (ix *Index) saveCache() error {
+	ix.refreshJournals()
 	ix.mu.RLock()
 	if !ix.dirty || ix.cacheFile == "" {
 		ix.mu.RUnlock()
 		return nil
 	}
-	c := indexCache{BuiltAt: ix.builtAt, Dirs: ix.dirs, Count: ix.count}
+	c := indexCache{BuiltAt: ix.builtAt, Dirs: ix.dirs, Count: ix.count, Journals: ix.journals}
 	path := ix.cacheFile
 	tmp := path + ".tmp"
 	f, err := os.Create(tmp)
@@ -414,9 +423,165 @@ func (ix *Index) LoadCache() error {
 	}
 	ix.mu.Lock()
 	ix.dirs, ix.count, ix.builtAt, ix.dirty = c.Dirs, c.Count, c.BuiltAt, false
+	ix.journals = c.Journals
 	ix.mu.Unlock()
 	go ix.rebuildFlat()
 	return nil
+}
+
+// ---------------------------------------------------------------- change journal
+
+// refreshJournals moves the stored journal positions to now, for volumes
+// that had one, so that a saved cache is marked current to this moment.
+// (The directory watcher has applied everything up to its batching delay;
+// that sub-second window is the price until the journal is tailed live.)
+func (ix *Index) refreshJournals() {
+	ix.mu.RLock()
+	roots := append([]string{}, ix.roots...)
+	have := len(ix.journals) > 0 && ix.dirty
+	ix.mu.RUnlock()
+	if !have {
+		return
+	}
+	now := journalPositions(roots)
+	ix.mu.Lock()
+	for vol := range ix.journals {
+		if p, ok := now[vol]; ok {
+			ix.journals[vol] = p
+		}
+	}
+	ix.mu.Unlock()
+}
+
+// CatchingUp reports whether a change-journal catch-up is running.
+func (ix *Index) CatchingUp() bool { return ix.catching.Load() }
+
+// CatchUpNote describes the last catch-up for the search dialog.
+func (ix *Index) CatchUpNote() string {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	return ix.catchUp
+}
+
+// CatchUp brings a cached index up to date from the volumes' change
+// journals instead of rebuilding: every directory with a changed listing
+// since the stored position is re-read and reconciled. It fails, and the
+// caller rebuilds, when any root's volume has no usable journal.
+func (ix *Index) CatchUp() (changed int, err error) {
+	if !journalsSupported() {
+		return 0, errJournalUnusable
+	}
+	ix.catching.Store(true)
+	defer ix.catching.Store(false)
+	ix.mu.RLock()
+	roots := append([]string{}, ix.roots...)
+	journals := map[string]journalPos{}
+	for v, p := range ix.journals {
+		journals[v] = p
+	}
+	ix.mu.RUnlock()
+	vols := map[string]bool{}
+	for _, r := range roots {
+		vol := journalVolume(r)
+		if vol == "" {
+			return 0, errJournalUnusable
+		}
+		if _, ok := journals[vol]; !ok {
+			return 0, errJournalUnusable
+		}
+		vols[vol] = true
+	}
+	if len(vols) == 0 {
+		return 0, errJournalUnusable
+	}
+	var dirs []string
+	newPos := map[string]journalPos{}
+	for vol := range vols {
+		d, pos, err := journalChangedDirs(vol, journals[vol])
+		if err != nil {
+			return 0, err
+		}
+		dirs = append(dirs, d...)
+		newPos[vol] = pos
+	}
+	changed = ix.syncDirs(dirs)
+	ix.mu.Lock()
+	ix.journals = newPos
+	ix.dirty = true
+	ix.catchUp = fmt.Sprintf("caught up from the change journal: %s directories changed since the last run", groupDigits(int64(changed)))
+	ix.mu.Unlock()
+	return changed, nil
+}
+
+// syncDirs reconciles the listing of each directory with the disk: names
+// that vanished are removed, names that appeared are added (directories
+// with their subtree), through the same path as watcher events. A
+// directory not yet in the index is added when its parent is. Returns the
+// number of directories that actually differed.
+func (ix *Index) syncDirs(dirs []string) int {
+	ix.mu.RLock()
+	roots := append([]string{}, ix.roots...)
+	ix.mu.RUnlock()
+	changed := 0
+	for _, dir := range dirs {
+		dir = filepath.Clean(dir)
+		if !underAnyRoot(dir, roots) || ix.exclude.skipPath(dir) {
+			continue
+		}
+		des, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		var batch []fsEvent
+		ix.mu.RLock()
+		indexed, known := ix.dirs[dir]
+		_, parentKnown := ix.dirs[filepath.Dir(dir)]
+		ix.mu.RUnlock()
+		if !known {
+			if parentKnown && !ix.exclude.skipDir(dir) {
+				batch = append(batch, fsEvent{fsCreate, dir}) // a new directory: added with its subtree
+			}
+		} else {
+			onDisk := map[string]bool{}
+			for _, de := range des {
+				onDisk[de.Name()] = true
+				batch = append(batch, fsEvent{fsCreate, filepath.Join(dir, de.Name())})
+			}
+			// Only names that are new or gone make events; unchanged names
+			// are dropped again below.
+			have := map[string]bool{}
+			for _, n := range indexed {
+				have[n] = true
+				if !onDisk[n] {
+					batch = append(batch, fsEvent{fsRemove, filepath.Join(dir, n)})
+				}
+			}
+			kept := batch[:0]
+			for _, ev := range batch {
+				if ev.Op == fsCreate && have[filepath.Base(ev.Path)] {
+					continue
+				}
+				kept = append(kept, ev)
+			}
+			batch = kept
+		}
+		if len(batch) > 0 {
+			ix.apply(batch)
+			changed++
+		}
+	}
+	return changed
+}
+
+// underAnyRoot reports whether p lies in one of the roots.
+func underAnyRoot(p string, roots []string) bool {
+	for _, r := range roots {
+		r = filepath.Clean(r)
+		if strings.EqualFold(p, r) || strings.HasPrefix(strings.ToLower(p), strings.ToLower(withSep(r))) {
+			return true
+		}
+	}
+	return false
 }
 
 // ---------------------------------------------------------------- search

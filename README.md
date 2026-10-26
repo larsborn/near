@@ -62,7 +62,11 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   file name on all fixed drives by default (`search_roots`, where `"*"` means
   the fixed drives, without network, removable and subst ones, and other
   entries are directories), built in the
-  background, cached between runs and kept current by a filesystem watcher. Words match the name, a term with
+  background, cached between runs and kept current by a filesystem watcher.
+  On Windows a start does not rebuild it: the index catches up from each
+  volume's NTFS change journal, without administrator rights, and only falls
+  back to a full rebuild when a journal cannot be used (recreated, wrapped
+  after a long absence, disabled, non-NTFS). Words match the name, a term with
   `/` matches the path, `*` and `?` are wildcards. `Enter` jumps to the file,
   `Ctrl+T` opens it in a new tab.
 - **Quick search by holding Alt**: `Alt+p`, `Alt+h`, `Alt+o` moves the cursor to
