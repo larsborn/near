@@ -11,8 +11,9 @@ but builds and is developed on Windows.
 ## Git workflow
 
 **Always commit and push when a piece of work is done** — do not leave changes sitting in the
-working tree. Run `gofmt -l .`, `go vet ./...` and `go test ./...` first, commit with a message
-that says what changed for the user, then `git push`. Releases are separate: they
+working tree. Run `make check` (gofmt/vet/tests) first, commit with a message that says what changed for
+the user, then push (`git push` on the Windows box, plain `git push` on Linux).
+The repo has a local `user.email` matching the first commit's author; keep committing as that. Releases are separate: they
 are cut only when asked, by tagging `vX.Y.Z` and pushing the tag (see below).
 
 ## Open tasks — `todo/`
@@ -49,6 +50,12 @@ default, a storage location, a naming rule, a scope cut. One Markdown file per d
 - **Read the relevant decisions before changing related behaviour**, as with `todo/`.
 
 ## Commands
+
+A `Makefile` wraps everything below: `make` (native binary, `near`/`near.exe`), `make check`
+(gofmt-check + vet + test, the pre-commit gate), `make cross` (every release target, like CI),
+`make dist` (release archives like `release.yml`), `make clean`. `GO=<path>` picks the toolchain;
+`go.mod` needs Go 1.25, and on the Linux box the system Go is 1.18, so use
+`make GO=~/sdk/go1.25.0/bin/go …` there (or put `~/sdk/go1.25.0/bin` first on `PATH`).
 
 ```sh
 go build -o near.exe .                               # Windows build (dev box)

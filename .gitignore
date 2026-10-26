@@ -29,6 +29,7 @@ go.work.sum
 .env
 
 # project specific
+near
 near.exe
 near-linux-*
 near-darwin-*

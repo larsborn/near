@@ -317,6 +317,16 @@ Set `notes_file` in the config to use a different name.
 ## Development
 
 ```sh
+make            # build ./near (near.exe on Windows), version from git describe
+make check      # gofmt -l, go vet and the headless test suite
+make cross      # compile every release target, as CI does
+make dist       # build the release archives into dist/
+make GO=~/sdk/go1.25.0/bin/go check   # use a specific Go toolchain
+```
+
+The Makefile is a thin wrapper around the usual commands:
+
+```sh
 go test ./...                           # headless UI tests via tcell's simulation screen
 go vet ./... && gofmt -l .
 GOOS=linux  GOARCH=amd64 go build -o near-linux-amd64 .
