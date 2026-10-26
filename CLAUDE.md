@@ -11,10 +11,10 @@ but builds and is developed on Windows.
 ## Git workflow
 
 **Always commit and push when a piece of work is done** — do not leave changes sitting in the
-working tree. Run `make check` (gofmt/vet/tests) first, commit with a message that says what changed for
-the user, then push (`git push` on the Windows box, plain `git push` on Linux).
-The repo has a local `user.email` matching the first commit's author; keep committing as that. Releases are separate: they
-are cut only when asked, by tagging `vX.Y.Z` and pushing the tag (see below).
+working tree. Run `make check` (gofmt/vet/tests) first, commit with a message that says what
+changed for the user, then `git push`. The repo has a local `user.email` matching the first
+commit's author; keep committing as that. Releases are separate: they are cut only when asked,
+by tagging `vX.Y.Z` and pushing the tag (see below).
 
 ## Open tasks — `todo/`
 
