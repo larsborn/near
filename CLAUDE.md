@@ -68,6 +68,12 @@ go test -run 'TestEditorBasics|TestWatcherNative' -v .   # single tests
 ./near.exe -config ./some.toml                       # run against an alternative config
 ```
 
+Windows resources (icon `assets/near.ico`, version info, manifest) are described in
+`winres/winres.json`; `go-winres make --in winres/winres.json --out rsrc --arch amd64,arm64`
+(tool: `go install github.com/tc-hib/go-winres@latest`) regenerates the committed
+`rsrc_windows_*.syso` files that `go build` links automatically. Regenerate after changing the
+icon or the metadata; `release.yml` regenerates them with the tag's version before building.
+
 CI (`.github/workflows/ci.yml`) runs gofmt/vet/tests on Linux, Windows and macOS and
 cross-compiles every release target. A `v*` tag triggers `release.yml`, which builds archives
 for linux/darwin/windows/freebsd with `-X main.version=<tag>` and publishes them with
