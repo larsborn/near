@@ -43,8 +43,11 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   console like in a shell: commands at the bottom, output accumulating above,
   `Up`/`Down` recalling the history, `PgUp`/`PgDn` scrolling, `Tab`
   completing the path at the end of the line (a unique match is filled in,
-  a second `Tab` lists ambiguous ones), `Ctrl+C` stopping a running command,
-  `Ctrl+O` bringing the panels back. Nothing reaches the hidden panels.
+  a second `Tab` lists ambiguous ones), `Ctrl+C` stopping a running command
+  (also when the command switched the console to cooked input, in which
+  case Ctrl+C arrives as a console event; NEAR restores the console mode
+  after every command), `Ctrl+O` bringing the panels back. Nothing reaches
+  the hidden panels.
   Programs that need a real terminal (`interactive_commands` in the config:
   editors, pagers, shells, ssh) run outside instead, as does anything sent
   with `Shift+Enter`.

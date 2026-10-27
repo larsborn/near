@@ -53,6 +53,7 @@ func main() {
 		screen.EnableMouse()
 	}
 	startMenuKeyWatcher(screen)
+	watchInterrupts(screen)
 	defer func() {
 		if r := recover(); r != nil {
 			screen.Fini()

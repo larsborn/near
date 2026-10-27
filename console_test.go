@@ -129,6 +129,37 @@ func TestConsoleRunAndStay(t *testing.T) {
 	}
 }
 
+// Ctrl+C arriving as a console control event (the command switched the
+// console to processed input) stops the command just like the key.
+func TestInterruptEventStopsCommand(t *testing.T) {
+	a, _ := testApp(t)
+	if runtime.GOOS == "windows" {
+		typeText(a, "ping -n 30 127.0.0.1")
+	} else {
+		typeText(a, "sleep 30")
+	}
+	key(a, "Enter")
+	if a.running == nil {
+		t.Fatal("command should be running")
+	}
+	start := time.Now()
+	ev := &EventInterrupt{}
+	ev.SetEventNow()
+	a.handleEvent(ev)
+	waitCommand(t, a)
+	if time.Since(start) > 10*time.Second {
+		t.Fatal("the interrupt took too long to stop the command")
+	}
+	if !strings.Contains(a.console.Text(), "^C") {
+		t.Fatalf("console = %q", a.console.Text())
+	}
+	// Without a running command the event is ignored.
+	a.handleEvent(ev)
+	if a.quit {
+		t.Fatal("an interrupt must not quit NEAR")
+	}
+}
+
 func TestConsoleCtrlC(t *testing.T) {
 	a, _ := testApp(t)
 	if runtime.GOOS == "windows" {

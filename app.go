@@ -291,6 +291,11 @@ func (a *App) handleEvent(ev tcell.Event) {
 		}
 	case *EventIndexChanged, *EventIndexProgress:
 		// The index was updated by the watcher or is being built; redraw picks it up.
+	case *EventInterrupt:
+		// Ctrl+C delivered as a console control event: same as the key.
+		if a.running != nil {
+			a.stopCommand()
+		}
 	case *tcell.EventClipboard:
 		if len(a.dialogs) > 0 {
 			if e, ok := a.top().(*Editor); ok {

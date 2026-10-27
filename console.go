@@ -476,6 +476,7 @@ func consoleEnv(cols, rows int) []string {
 
 func (a *App) commandDone(err error) {
 	a.running = nil
+	restoreConsoleInput() // the command may have changed the shared console's input mode
 	elapsed := time.Since(a.runStart).Round(10 * time.Millisecond)
 	switch e := err.(type) {
 	case nil:
