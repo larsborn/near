@@ -72,6 +72,12 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
 - **Quick search by holding Alt**: `Alt+p`, `Alt+h`, `Alt+o` moves the cursor to
   the first name starting with "pho"; keep typing with or without Alt,
   `Up`/`Down` step through matches, `Enter` opens the match. `Ctrl+S` starts it too.
+- **Viewer** (`F3`) like FAR's: lines wrap at words by default, `F2` switches
+  wrapping off and `Shift+F2` between word and character wrapping. Unwrapped
+  lines that continue beyond the screen edge are marked `»`, and `«` once
+  scrolled sideways with `Left`/`Right`. The header shows the mode, encoding,
+  size, column and position; `F7` searches, `N` finds the next match; binary
+  files are shown as a hex dump.
 - **Built-in editor** (`F4`, `Shift+F4` for a new file) modelled on FAR's: `F2`
   save, `Shift+F2` save as, `F7` find, `Shift+F7`/`Alt+F7` next/previous,
   `Ctrl+F7` replace, `Alt+F8` go to line, `Ctrl+Z`/`Ctrl+Shift+Z` undo/redo,

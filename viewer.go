@@ -15,19 +15,20 @@ const viewerMaxBytes = 64 << 20
 
 // Viewer shows text (or a hex dump for binary data) full screen.
 type Viewer struct {
-	Title  string
-	Lines  []string
-	Top    int
-	Left   int
-	Wrap   bool
-	hex    bool
-	raw    []byte
-	query  string
-	cursor int
+	Title    string
+	Lines    []string
+	Top      int
+	Left     int
+	Wrap     bool // lines longer than the screen continue on the next row (F2), as in FAR's viewer
+	WordWrap bool // ... breaking at spaces rather than anywhere (Shift+F2)
+	hex      bool
+	raw      []byte
+	query    string
+	cursor   int
 }
 
 func newViewer(title, text string, hex bool) *Viewer {
-	v := &Viewer{Title: title, hex: hex}
+	v := &Viewer{Title: title, hex: hex, Wrap: !hex, WordWrap: true}
 	v.Lines = strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 	return v
 }
@@ -49,7 +50,7 @@ func newFileViewer(path string) (*Viewer, error) {
 		probe = probe[:8192]
 	}
 	binary := bytes.IndexByte(probe, 0) >= 0 || !utf8.Valid(probe[:len(probe)-utf8.UTFMax*boolInt(len(probe) == 8192)])
-	v := &Viewer{Title: path, raw: data}
+	v := &Viewer{Title: path, raw: data, Wrap: !binary, WordWrap: true}
 	if binary {
 		v.hex = true
 		v.Lines = hexDump(data)
@@ -143,6 +144,8 @@ func (v *Viewer) HandleKey(a *App, ev *tcell.EventKey) {
 	case "F2", "W":
 		v.Wrap = !v.Wrap
 		v.Left = 0
+	case "Shift+F2":
+		v.WordWrap = !v.WordWrap
 	case "F7", "/", "Ctrl+F":
 		a.input("Search", "Text:", v.query, func(s string) {
 			v.query = s
@@ -153,11 +156,29 @@ func (v *Viewer) HandleKey(a *App, ev *tcell.EventKey) {
 	}
 }
 
+// wrapText splits a line into rows of at most w cells; with words set it
+// breaks after the last space that fits.
+func wrapText(line string, w int, words bool) []string {
+	var out []string
+	for line != "" {
+		part := runewidth.Truncate(line, w, "")
+		if part == "" {
+			break
+		}
+		if words && len(part) < len(line) {
+			if i := strings.LastIndex(part, " "); i > 0 {
+				part = part[:i+1]
+			}
+		}
+		out = append(out, part)
+		line = line[len(part):]
+	}
+	return out
+}
+
 func (v *Viewer) Draw(a *App) {
 	th := a.theme
 	a.fill(0, 0, a.w, a.h, th.Viewer)
-	a.fill(0, 0, a.w, 1, th.KeyLabel)
-	a.print(1, 0, a.w-2, th.KeyLabel, fitRight(v.Title, a.w-2))
 	rows := v.rows(a)
 	y := 1
 	for i := 0; i < rows; i++ {
@@ -167,13 +188,11 @@ func (v *Viewer) Draw(a *App) {
 		}
 		line := strings.ReplaceAll(v.Lines[idx], "\t", "    ")
 		if v.Wrap {
-			for len(line) > 0 && y <= rows {
-				part := runewidth.Truncate(line, a.w, "")
-				if part == "" {
+			for _, part := range wrapText(line, a.w, v.WordWrap) {
+				if y > rows {
 					break
 				}
 				a.print(0, y, a.w, th.Viewer, part)
-				line = line[len(part):]
 				y++
 			}
 			if y > rows {
@@ -181,21 +200,42 @@ func (v *Viewer) Draw(a *App) {
 			}
 			continue
 		}
+		// Unwrapped: FAR's « » marks show that the line goes on beyond the
+		// screen edge on that side.
+		width := runewidth.StringWidth(line)
 		if v.Left > 0 {
 			line = runewidth.TruncateLeft(line, v.Left, "")
 		}
 		a.print(0, y, a.w, th.Viewer, line)
+		if v.Left > 0 && width > v.Left {
+			a.print(0, y, 1, th.Viewer, "«")
+		}
+		if width-v.Left > a.w {
+			a.print(a.w-1, y, 1, th.Viewer, "»")
+		}
 		y++
 	}
+	// Header like FAR's viewer: path at the left; mode, encoding, size,
+	// column and position at the right.
 	pct := 100
 	if len(v.Lines) > rows {
 		pct = (v.Top + rows) * 100 / len(v.Lines)
 	}
-	mode := "text"
+	mode := "t"
 	if v.hex {
-		mode = "hex"
+		mode = "x"
 	}
-	foot := fmt.Sprintf(" %s  line %d/%d  %d%%  F2 wrap  F7 search  N next  Esc close ", mode, v.Top+1, len(v.Lines), pct)
+	right := fmt.Sprintf("%s │ UTF-8 │ %d │ Col %d │ %d%% ", mode, len(v.raw), v.Left, pct)
+	a.fill(0, 0, a.w, 1, th.KeyLabel)
+	a.print(1, 0, maxInt(0, a.w-2-runewidth.StringWidth(right)), th.KeyLabel, fitRight(v.Title, maxInt(0, a.w-2-runewidth.StringWidth(right))))
+	a.print(a.w-runewidth.StringWidth(right), 0, runewidth.StringWidth(right), th.KeyLabel, right)
+	wrap := "off"
+	if v.Wrap && v.WordWrap {
+		wrap = "words"
+	} else if v.Wrap {
+		wrap = "on"
+	}
+	foot := fmt.Sprintf(" line %d/%d  F2 wrap: %s  Shift+F2 word wrap  F7 search  N next  Esc close ", v.Top+1, len(v.Lines), wrap)
 	a.fill(0, a.h-1, a.w, 1, th.KeyLabel)
 	a.print(0, a.h-1, a.w, th.KeyLabel, fitLeft(foot, a.w))
 }
