@@ -37,6 +37,7 @@ func main() {
 	if *reindex {
 		cfg.SearchIndexOnStart = true
 	}
+	ensureConsole() // started from a GUI launcher without a console: get one
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "NEAR:", err)
