@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,6 +65,11 @@ type App struct {
 	lastApply        string          // last Apply command template
 	cmdQueue         []queuedCommand // console commands waiting to run one after another
 	panelRect        [2]rect         // where the panels were drawn, for the mouse
+	conArea          rect            // where the console rows were drawn, for the mouse
+	conRows          []conLine       // the console rows drawn last, for copying a selection
+	conRowTop        int             // screen row of conRows[0]
+	sel              conSelection    // mouse selection in the console
+	cmdStdin         io.WriteCloser  // stdin of the running console command
 	lastClick        time.Time
 	lastClickAt      [2]int
 	lastButtons      tcell.ButtonMask
@@ -305,7 +311,9 @@ func (a *App) handleEvent(ev tcell.Event) {
 			a.cmd.insert(firstLine(string(ev.Data())))
 		}
 	case *EventConsole:
-		// new output arrived; the redraw shows it
+		// new output arrived; the redraw shows it. A marked region would
+		// shift with it, so the marking is dropped.
+		a.sel = conSelection{}
 	case *EventCommandDone:
 		a.commandDone(ev.err)
 	case *EventTransfer:
@@ -324,6 +332,7 @@ func (a *App) handleEvent(ev tcell.Event) {
 }
 
 func (a *App) handleKey(ev *tcell.EventKey) {
+	a.sel = conSelection{} // a key drops the console marking
 	if len(a.dialogs) > 0 {
 		a.top().HandleKey(a, ev)
 		return
@@ -342,10 +351,21 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 		case a.keymap[name] == "toggle_panels" || a.keymap[name] == "quit":
 			a.restorePanels = false // the user took over; leave the view as they set it
 			a.doAction(a.keymap[name])
-		case a.hideAll && (name == "PgUp" || name == "PgDn" || name == "Home" || name == "End"):
+		case a.hideAll && len(a.cmd.Text) == 0 && (name == "PgUp" || name == "PgDn" || name == "Home" || name == "End"):
 			rows := a.h - bottomRows + 1
 			delta := map[string]int{"PgUp": rows - 1, "PgDn": -(rows - 1), "Home": 1 << 30, "End": -(1 << 30)}[name]
 			a.console.scrollBy(delta, a.w, rows)
+		case name == "Enter":
+			// What was typed goes to the command's standard input, as in a
+			// terminal (git add --patch, python's input(), ...).
+			a.sendStdin(a.cmd.String())
+			a.cmd.Set("")
+		case name == "Ctrl+D" || name == "Ctrl+Z":
+			a.closeStdin() // end of input
+		case name == "Up" || name == "Down" || name == "Tab" || name == "Esc":
+			// no history or completion while a command reads the input
+		default:
+			a.cmd.HandleKey(ev, a)
 		}
 		return
 	}

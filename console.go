@@ -355,6 +355,7 @@ func (a *App) drawConsole(top, height int, full bool) {
 	th := a.theme
 	rows, more := a.console.visualRows(a.w, height)
 	y := top + height - len(rows)
+	a.conArea, a.conRows, a.conRowTop = rect{0, top, a.w, height}, rows, y // for mouse selection
 	for _, row := range rows {
 		x := 0
 		for _, s := range row {
@@ -362,6 +363,7 @@ func (a *App) drawConsole(top, height int, full bool) {
 		}
 		y++
 	}
+	a.drawConsoleSelection()
 	if full && (more || a.console.scroll > 0) {
 		tag := " PgUp/PgDn scroll "
 		if a.console.scroll > 0 {
@@ -408,6 +410,11 @@ func (a *App) runInConsole(cmdline, cwd string) {
 		return
 	}
 	cmd.Stdout, cmd.Stderr = pw, pw
+	stdin, err := cmd.StdinPipe() // typed lines reach the command (Enter sends, Ctrl+D ends)
+	if err != nil {
+		a.setErr(err)
+		return
+	}
 	a.console.Println(a.prompt()+cmdline, a.theme.CmdPrompt)
 	if err := cmd.Start(); err != nil {
 		pw.Close()
@@ -417,6 +424,7 @@ func (a *App) runInConsole(cmdline, cwd string) {
 		return
 	}
 	pw.Close()
+	a.cmdStdin = stdin
 	a.running = cmd
 	a.runStart = time.Now()
 	a.restorePanels = !a.hideAll // FAR: panels come back after the command if they were visible
@@ -476,6 +484,11 @@ func consoleEnv(cols, rows int) []string {
 
 func (a *App) commandDone(err error) {
 	a.running = nil
+	if a.cmdStdin != nil {
+		_ = a.cmdStdin.Close()
+		a.cmdStdin = nil
+	}
+	a.cmd.Set("")         // input typed for the command but not sent is dropped
 	restoreConsoleInput() // the command may have changed the shared console's input mode
 	elapsed := time.Since(a.runStart).Round(10 * time.Millisecond)
 	switch e := err.(type) {
@@ -511,6 +524,27 @@ func (a *App) stopCommand() {
 	a.console.Println("^C", a.theme.StatusErr)
 	a.cmdQueue = nil // Ctrl+C also drops the commands still waiting
 	killTree(a.running)
+}
+
+// sendStdin writes a line to the running command's standard input and
+// echoes it into the console, as a terminal would.
+func (a *App) sendStdin(line string) {
+	if a.cmdStdin == nil {
+		return
+	}
+	a.console.Println(line, a.theme.Cmd)
+	if _, err := a.cmdStdin.Write([]byte(line + "\n")); err != nil {
+		a.closeStdin()
+	}
+}
+
+// closeStdin ends the running command's input (Ctrl+D).
+func (a *App) closeStdin() {
+	if a.cmdStdin != nil {
+		_ = a.cmdStdin.Close()
+		a.cmdStdin = nil
+		a.console.Println("^D", a.theme.ListDim.Background(bgOf(a.theme.Cmd)))
+	}
 }
 
 func bgOf(st tcell.Style) tcell.Color {

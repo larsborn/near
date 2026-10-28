@@ -41,6 +41,12 @@ func (a *App) handleMouse(ev *tcell.EventMouse) {
 		}
 		return
 	}
+	if a.consoleMouse(ev, pressed, buttons) {
+		return
+	}
+	if pressed != 0 {
+		a.sel = conSelection{} // a click elsewhere drops the marking
+	}
 	if a.hideAll {
 		return
 	}

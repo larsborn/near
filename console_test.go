@@ -129,6 +129,82 @@ func TestConsoleRunAndStay(t *testing.T) {
 	}
 }
 
+// A running command reads what is typed: Enter sends the line, Ctrl+D ends
+// the input (sort prints its sorted input only at end of input).
+func TestConsoleStdin(t *testing.T) {
+	a, _ := testApp(t)
+	typeText(a, "sort")
+	key(a, "Enter")
+	if a.running == nil || a.cmdStdin == nil {
+		t.Fatal("command should be running with an input pipe")
+	}
+	typeText(a, "pear")
+	key(a, "Enter")
+	typeText(a, "apple")
+	key(a, "Enter")
+	key(a, "Ctrl+D")
+	waitCommand(t, a)
+	out := a.console.Text()
+	if i, j := strings.LastIndex(out, "apple"), strings.LastIndex(out, "pear"); i < 0 || j < 0 || i > j {
+		t.Fatalf("sort should have printed its input sorted:\n%s", out)
+	}
+	if !strings.Contains(out, "^D") || a.cmdStdin != nil {
+		t.Fatalf("Ctrl+D should end the input: %q", out)
+	}
+}
+
+// Dragging the mouse over console rows marks text and copies it on release.
+func TestConsoleMouseSelectionCopies(t *testing.T) {
+	a, _ := testApp(t)
+	a.draw()
+	typeText(a, "echo hello wide world")
+	key(a, "Enter")
+	waitCommand(t, a)
+	a.draw()
+	rows := strings.Split(screenText(a), "\n")
+	y := -1
+	for i, r := range rows {
+		if strings.HasPrefix(r, "hello wide world") {
+			y = i
+		}
+	}
+	if y < 0 {
+		t.Fatalf("output row not found:\n%s", screenText(a))
+	}
+	x := strings.Index(rows[y], "wide")
+	a.handleEvent(tcell.NewEventMouse(x, y, tcell.ButtonPrimary, 0))
+	a.handleEvent(tcell.NewEventMouse(x+8, y, tcell.ButtonPrimary, 0)) // drag
+	a.draw()
+	if !a.sel.active {
+		t.Fatal("dragging should mark text")
+	}
+	a.handleEvent(tcell.NewEventMouse(x+8, y, tcell.ButtonNone, 0)) // release copies
+	if a.clipboard != "wide worl" {
+		t.Fatalf("copied %q", a.clipboard)
+	}
+	if !strings.Contains(a.status, "Copied") {
+		t.Fatalf("status = %q", a.status)
+	}
+	// A key drops the marking; a whole-row drag yields the trimmed row.
+	key(a, "Ctrl+O")
+	if a.sel.active {
+		t.Fatal("a key should drop the marking")
+	}
+	a.draw()
+	rows = strings.Split(screenText(a), "\n")
+	for i, r := range rows {
+		if strings.HasPrefix(r, "hello wide world") {
+			y = i
+		}
+	}
+	a.handleEvent(tcell.NewEventMouse(0, y, tcell.ButtonPrimary, 0))
+	a.handleEvent(tcell.NewEventMouse(a.w-1, y, tcell.ButtonPrimary, 0))
+	a.handleEvent(tcell.NewEventMouse(a.w-1, y, tcell.ButtonNone, 0))
+	if a.clipboard != "hello wide world" {
+		t.Fatalf("whole row copied %q", a.clipboard)
+	}
+}
+
 // Ctrl+C arriving as a console control event (the command switched the
 // console to processed input) stops the command just like the key.
 func TestInterruptEventStopsCommand(t *testing.T) {
@@ -171,15 +247,16 @@ func TestConsoleCtrlC(t *testing.T) {
 	if a.running == nil {
 		t.Fatal("command should be running")
 	}
-	// No prompt and no input while the command runs.
-	typeText(a, "ignored")
-	key(a, "Enter")
+	// No prompt while the command runs; what is typed is input for the
+	// command and shown on the input row without a prompt.
+	typeText(a, "typed")
 	promptRow := strings.Split(screenText(a), "\n")[a.h-2]
-	if a.cmd.String() != "" || strings.TrimSpace(promptRow) != "" {
+	if a.cmd.String() != "typed" || strings.Contains(promptRow, ">") || !strings.HasPrefix(promptRow, "typed") {
 		key(a, "Ctrl+C")
 		waitCommand(t, a)
-		t.Fatalf("input must be ignored and the prompt hidden while running: cmd=%q row=%q", a.cmd.String(), promptRow)
+		t.Fatalf("typed input should show without a prompt while running: cmd=%q row=%q", a.cmd.String(), promptRow)
 	}
+	key(a, "Enter") // sent to the command, which ignores it
 	start := time.Now()
 	key(a, "Ctrl+C")
 	waitCommand(t, a)

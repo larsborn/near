@@ -47,7 +47,11 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   (also when the command switched the console to cooked input, in which
   case Ctrl+C arrives as a console event; NEAR restores the console mode
   after every command), `Ctrl+O` bringing the panels back. Nothing reaches
-  the hidden panels.
+  the hidden panels. While a command runs, what you type is its input:
+  `Enter` sends the line (echoed in the console), `Ctrl+D` ends the input,
+  so `git add --patch`, `python` prompts and the like work. Dragging the
+  mouse over console rows, in the full view or the band under the panels,
+  marks text and copies it to the clipboard on release.
   Programs that need a real terminal (`interactive_commands` in the config:
   editors, pagers, shells, ssh) run outside instead, as does anything sent
   with `Shift+Enter`.

@@ -26,12 +26,15 @@ func (a *App) drawCmdLine() {
 	th := a.theme
 	y := a.h - 2
 	a.fill(0, y, a.w, 1, th.Cmd)
+	focused := len(a.dialogs) == 0 && !a.qsActive
 	if a.running != nil {
-		return // no prompt until the command has terminated
+		// No prompt until the command has terminated; what is typed meanwhile
+		// is input for the command and shown as such.
+		a.cmd.Draw(a, 0, y, a.w, th.Cmd, focused)
+		return
 	}
 	pr := a.prompt()
 	pw := a.print(0, y, a.w-4, th.CmdPrompt, pr)
-	focused := len(a.dialogs) == 0 && !a.qsActive
 	a.cmd.Draw(a, pw, y, a.w-pw, th.Cmd, focused)
 }
 
