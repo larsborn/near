@@ -238,8 +238,8 @@ shell_rc = "~/.bash_aliases"
 
 ```toml
 [keys]
-up_dir = ["Esc", "Backspace"]     # several keys per action are fine
-mass_rename = ["Ctrl+F6", "Alt+F6"]
+up_dir = ["Esc"]
+mass_rename = ["Ctrl+F6", "Alt+F6"]   # several keys per action are fine
 quit = ["F10", "Ctrl+Q"]
 ```
 

@@ -1,7 +1,7 @@
 # Esc (and Backspace) go to the parent directory
 
 Date: 2026-10-23
-Status: accepted
+Status: superseded by backspace-never-goes-up.md
 
 ## Decision
 With an empty command line, Esc and Backspace move the panel to the parent directory

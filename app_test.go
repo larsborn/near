@@ -212,6 +212,37 @@ func TestNavigateAndEscUp(t *testing.T) {
 	}
 }
 
+// Backspace edits the command line and never leaves the directory, not
+// even once the line is empty and the panels are hidden.
+func TestBackspaceNeverGoesUp(t *testing.T) {
+	a, data := testApp(t)
+	a.draw()
+	typeText(a, "ab")
+	key(a, "Backspace")
+	key(a, "Backspace")
+	if a.cmd.String() != "" {
+		t.Fatalf("Backspace should have emptied the command line, got %q", a.cmd.String())
+	}
+	key(a, "Backspace") // one too many
+	if a.tab().Path != data {
+		t.Fatalf("Backspace on an empty line left the directory: %s", a.tab().Path)
+	}
+	// Same with the panels hidden, where the move would be invisible.
+	key(a, "Ctrl+O")
+	typeText(a, "x")
+	key(a, "Backspace")
+	key(a, "Backspace")
+	if a.tab().Path != data {
+		t.Fatalf("Backspace in the console view left the directory: %s", a.tab().Path)
+	}
+	// Esc still goes up.
+	key(a, "Ctrl+O")
+	key(a, "Esc")
+	if a.tab().Path != filepath.Dir(data) {
+		t.Fatalf("Esc should still go up, path = %s", a.tab().Path)
+	}
+}
+
 func TestTabs(t *testing.T) {
 	a, data := testApp(t)
 	key(a, "Ctrl+T")
