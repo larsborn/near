@@ -3,6 +3,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -10,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/windows"
 )
@@ -49,17 +52,54 @@ func listLocations() []Bookmark {
 // takes the path as UTF-16 so names outside the system code page work
 // (rundll32 url.dll,FileProtocolHandler is ANSI-only and mangles them).
 func osOpen(path string) error {
+	// A missing file is the common failure and is worth an exact message;
+	// the helper below could only report it through its exit status.
+	if _, err := os.Stat(path); err != nil {
+		return err
+	}
 	// Launch through a detached helper (near -open <path>) that has no
 	// console of its own. Started directly, a GUI program is free to call
 	// AttachConsole(ATTACH_PARENT_PROCESS), land on NEAR's console and write
 	// its diagnostics over the screen; Electron editors do exactly that.
-	if cmd, err := openHelperCmd(path); err == nil {
-		if err := cmd.Start(); err == nil {
-			go func() { _ = cmd.Wait() }()
-			return nil
-		}
+	cmd, err := openHelperCmd(path)
+	if err != nil {
+		return osOpenDirect(path) // no helper available: launch from here
 	}
-	return osOpenDirect(path) // no helper available: launch from here
+	if err := cmd.Start(); err != nil {
+		return osOpenDirect(path)
+	}
+	// The helper only calls ShellExecuteW and exits, so waiting is brief.
+	// It is bounded all the same: a shell that takes its time must not
+	// freeze the panels (the old in-process call could block for as long as
+	// it liked).
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		var ee *exec.ExitError
+		switch {
+		case err == nil:
+		case errors.As(err, &ee) && ee.ExitCode() == exitNoAssociation:
+			return fmt.Errorf("no program is associated with %s", filepath.Base(path))
+		default:
+			return fmt.Errorf("could not open %s", filepath.Base(path))
+		}
+	case <-time.After(3 * time.Second):
+	}
+	return nil
+}
+
+// exitNoAssociation is the helper's exit status when the file type has no
+// associated program; every other failure exits 1.
+const exitNoAssociation = 2
+
+// openExitCode turns a ShellExecuteW failure into the helper's exit status,
+// which is all osOpen gets to see of it.
+func openExitCode(err error) int {
+	if errors.Is(err, windows.ERROR_NO_ASSOCIATION) {
+		return exitNoAssociation
+	}
+	return 1
 }
 
 // Creation flags for the helper: no console, and its own process group so

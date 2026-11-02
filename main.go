@@ -36,7 +36,7 @@ func main() {
 	if *openPath != "" {
 		if err := osOpenDirect(*openPath); err != nil {
 			fmt.Fprintln(os.Stderr, "NEAR:", err)
-			os.Exit(1)
+			os.Exit(openExitCode(err))
 		}
 		return
 	}

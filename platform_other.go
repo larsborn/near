@@ -62,6 +62,10 @@ func listLocations() []Bookmark {
 	return out
 }
 
+// openExitCode is the status the "-open" helper exits with; the detour
+// exists only on Windows, so every failure is alike here.
+func openExitCode(err error) int { return 1 }
+
 // osOpen opens path with its associated program (open / xdg-open). The
 // child's standard streams stay unset, so os/exec gives it /dev/null and
 // it cannot write over the terminal NEAR is drawing on.
