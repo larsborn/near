@@ -49,6 +49,43 @@ func listLocations() []Bookmark {
 // takes the path as UTF-16 so names outside the system code page work
 // (rundll32 url.dll,FileProtocolHandler is ANSI-only and mangles them).
 func osOpen(path string) error {
+	// Launch through a detached helper (near -open <path>) that has no
+	// console of its own. Started directly, a GUI program is free to call
+	// AttachConsole(ATTACH_PARENT_PROCESS), land on NEAR's console and write
+	// its diagnostics over the screen; Electron editors do exactly that.
+	if cmd, err := openHelperCmd(path); err == nil {
+		if err := cmd.Start(); err == nil {
+			go func() { _ = cmd.Wait() }()
+			return nil
+		}
+	}
+	return osOpenDirect(path) // no helper available: launch from here
+}
+
+// Creation flags for the helper: no console, and its own process group so
+// a Ctrl+C in NEAR's console does not reach it.
+const (
+	detachedProcess       = 0x00000008
+	createNewProcessGroup = 0x00000200
+)
+
+// openHelperCmd builds the detached "near -open <path>" helper command.
+func openHelperCmd(path string) (*exec.Cmd, error) {
+	self, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(self, "-open", path)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		CreationFlags: detachedProcess | createNewProcessGroup,
+		HideWindow:    true,
+	}
+	return cmd, nil
+}
+
+// osOpenDirect performs the ShellExecuteW itself. It runs in the helper,
+// where there is no console to disturb.
+func osOpenDirect(path string) error {
 	p, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		return err

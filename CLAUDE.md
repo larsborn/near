@@ -204,6 +204,11 @@ queued (`SearchDialog.dirty` + `HasPendingEvent`).
 - Ctrl+Enter only arrives as a distinct key on terminals with modifyOtherKeys/kitty/win32-input
   support (tcell enables them); Ctrl+J is the bound fallback.
 - Build artifacts `near.exe`, `near-linux-*` live in the repo root and are git-ignored.
+- A GUI program launched from NEAR on Windows can call `AttachConsole(ATTACH_PARENT_PROCESS)`
+  and write over the drawn screen (Electron does). `osOpen` therefore goes through a detached
+  `near -open <path>` helper with no console of its own (`platform_windows.go`,
+  `decisions/open-via-detached-helper.md`); `-open` must stay ahead of `ensureConsole` in
+  `main.go`. Ctrl+R (`refresh`) calls `Screen.Sync` to repair a screen anyway.
 - On Windows tcell runs the console in input mode 0x288 (VT input, window input, extended
   flags; measured on a live instance, the mouse flag is not part of it). A program sharing the
   console can change it; `restoreConsoleInput` (`console_windows.go`) sets it back after every

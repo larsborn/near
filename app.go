@@ -865,6 +865,7 @@ func (a *App) doAction(action string) {
 		a.reloadAll()
 	case "refresh":
 		a.reloadAll()
+		a.screen.Sync() // also repaints every cell, repairing a screen another program wrote on
 		a.setStatus("Reloaded")
 	case "swap_panels":
 		a.panels[0], a.panels[1] = a.panels[1], a.panels[0]

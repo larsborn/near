@@ -62,8 +62,14 @@ func listLocations() []Bookmark {
 	return out
 }
 
-// osOpen opens path with its associated program (open / xdg-open).
-func osOpen(path string) error {
+// osOpen opens path with its associated program (open / xdg-open). The
+// child's standard streams stay unset, so os/exec gives it /dev/null and
+// it cannot write over the terminal NEAR is drawing on.
+func osOpen(path string) error { return osOpenDirect(path) }
+
+// osOpenDirect is what the "-open" helper entry point calls; on Windows the
+// two differ (see platform_windows.go), here they are the same.
+func osOpenDirect(path string) error {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "darwin" {
 		cmd = exec.Command("open", path)

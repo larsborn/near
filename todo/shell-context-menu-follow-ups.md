@@ -21,6 +21,15 @@ Finder actions (macOS). NEAR's own actions are appended after a separator.
   default/associations ordering is ignored (plain alphabetical).
 - **macOS**: only Open, Reveal in Finder, Quick Look, Get Info. No "Open with" list
   (would need LaunchServices).
+- **Windows, a launched program can write over the screen**: `InvokeCommand` runs in NEAR's
+  process, so a GUI program started from a context-menu verb can call
+  `AttachConsole(ATTACH_PARENT_PROCESS)`, land on NEAR's console and scribble over the
+  panels (measured with a probe; Electron editors do this). Enter on a file no longer has
+  the problem — it goes through the detached `near -open` helper
+  (`decisions/open-via-detached-helper.md`) — but the context menu still does. Options: run
+  the whole invocation in a detached helper process (it would have to rebuild the menu
+  there, so probably only for the plain "open" verb), or accept it and rely on Ctrl+R, which
+  now repaints every cell.
 
 ## Acceptance
 Each Windows verb above either works or fails with a visible status message; the Menu key

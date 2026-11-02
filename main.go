@@ -16,6 +16,7 @@ func main() {
 	reindex := flag.Bool("reindex", false, "rebuild the file name search index at startup")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	showDefaults := flag.Bool("defaults", false, "print the default config file and exit")
+	openPath := flag.String("open", "", "open one file with its associated program and exit;\nNEAR uses this for itself to keep the launched program off its console")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: near [flags] [left-dir [right-dir]]\n\n")
 		flag.PrintDefaults()
@@ -27,6 +28,16 @@ func main() {
 	}
 	if *showDefaults {
 		fmt.Print(defaultConfigText())
+		return
+	}
+	// The open helper must return before ensureConsole: allocating a console
+	// here would give the launched program one to write to, which is the
+	// very thing this detour avoids.
+	if *openPath != "" {
+		if err := osOpenDirect(*openPath); err != nil {
+			fmt.Fprintln(os.Stderr, "NEAR:", err)
+			os.Exit(1)
+		}
 		return
 	}
 	cfg, err := loadConfig(*cfgPath)

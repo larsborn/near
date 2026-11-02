@@ -56,6 +56,11 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   editors, pagers, shells, ssh) run outside instead, as does anything sent
   with `Shift+Enter`.
 - **Esc goes to the parent directory.** Every key is configurable.
+- **Enter opens a file** with its associated program. On Windows the launch
+  goes through a short-lived detached helper so that the program cannot
+  attach to NEAR's console and write over the screen. `Ctrl+R` reloads both
+  panels and repaints every cell, which repairs a screen that something
+  else did write on.
 - **Find file** (`Alt+F7`), FAR's dialog: one or several file masks
   (`*.go;*.md`, a mask with a separator matches the relative path), text or
   hex content with case sensitive, whole words and not-containing options,
