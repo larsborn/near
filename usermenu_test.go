@@ -130,6 +130,43 @@ func TestUserMenuEditing(t *testing.T) {
 	}
 }
 
+// In a menu the arrows walk it like a folder tree: Right enters a submenu
+// as Enter does, Left and Backspace leave it as Esc does.
+func TestMenuArrowsEnterAndLeaveSubmenus(t *testing.T) {
+	a, _ := testApp(t)
+	key(a, "F2")
+	d, ok := a.top().(*ListDialog)
+	if !ok {
+		t.Fatalf("F2 should open a menu, got %T", a.top())
+	}
+	// Right on a plain command does nothing.
+	d.Cursor = 0
+	key(a, "Right")
+	if len(a.dialogs) != 1 || a.top() != Dialog(d) {
+		t.Fatal("Right on a command should not leave the menu")
+	}
+	// Right on the submenu entry opens it.
+	d.Cursor = len(d.Items) - 1
+	if !d.Items[d.Cursor].Sub {
+		t.Fatalf("the last entry should be a submenu: %+v", d.Items[d.Cursor])
+	}
+	key(a, "Right")
+	sub, ok := a.top().(*ListDialog)
+	if !ok || sub.Title != "Tools" {
+		t.Fatalf("Right should have opened the Tools submenu, got %T %q", a.top(), sub.Title)
+	}
+	// Left leaves it, like Esc.
+	key(a, "Left")
+	if len(a.dialogs) != 0 {
+		t.Fatalf("Left should leave the menu, %d dialogs left", len(a.dialogs))
+	}
+	key(a, "F2")
+	key(a, "Backspace")
+	if len(a.dialogs) != 0 {
+		t.Fatalf("Backspace should leave the menu, %d dialogs left", len(a.dialogs))
+	}
+}
+
 // A plain menu item runs in the console view: no pause afterwards, the
 // panels come back and the output stays visible under them.
 func TestMenuItemRunsInConsole(t *testing.T) {

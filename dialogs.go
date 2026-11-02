@@ -507,6 +507,7 @@ type ListItem struct {
 	Data   any
 	Sep    bool
 	Dim    bool // disabled entry, shown greyed
+	Sub    bool // opens a submenu: Right enters it, as Enter does
 }
 
 type ListDialog struct {
@@ -560,6 +561,14 @@ func (d *ListDialog) move(delta int, rows int) {
 	_ = rows
 }
 
+// close leaves the list, as Esc does.
+func (d *ListDialog) close(a *App) {
+	a.pop()
+	if d.OnClose != nil {
+		d.OnClose()
+	}
+}
+
 func (d *ListDialog) select_(a *App) {
 	if d.Cursor < 0 || d.Cursor >= len(d.Items) || d.Items[d.Cursor].Sep {
 		return
@@ -593,13 +602,23 @@ func (d *ListDialog) HandleKey(a *App, ev *tcell.EventKey) {
 	case "Enter":
 		d.select_(a)
 	case "Esc":
-		a.pop()
-		if d.OnClose != nil {
-			d.OnClose()
+		d.close(a)
+	case "Right":
+		// In a menu the arrows walk it like a folder tree: Right enters a
+		// submenu, Left leaves the menu again.
+		if d.Menu && d.Cursor >= 0 && d.Cursor < len(d.Items) && d.Items[d.Cursor].Sub {
+			d.select_(a)
+		}
+	case "Left":
+		if d.Menu {
+			d.close(a)
 		}
 	case "Backspace":
-		if len(d.filter) > 0 {
+		switch {
+		case len(d.filter) > 0:
 			d.filter = d.filter[:len(d.filter)-1]
+		case d.Menu:
+			d.close(a)
 		}
 	default:
 		if ev.Key() != tcell.KeyRune || ev.Modifiers()&(tcell.ModCtrl|tcell.ModAlt) != 0 {

@@ -102,7 +102,8 @@ the first version. `menus.toml` in the same directory holds menus edited inside 
 `Draw(a)`. Input, confirm, list (menus/histories), text (notes), mass rename, search, viewer,
 diff viewer and the editor are all dialogs on one stack. Callbacks run after `a.pop()`, so a
 callback may push the next dialog (menus → submenus, replace loop, save prompts). The
-`ListDialog.OnKey` hook is how histories implement Delete/Ctrl+T/Shift+Enter.
+`ListDialog.OnKey` hook is how histories implement Delete/Ctrl+T/Shift+Enter. A list with
+`Menu` set also takes Right into a submenu (`ListItem.Sub`) and Left/Backspace out of it.
 
 **Actions** are strings. Adding one means touching three places: the default `[keys]` table inside
 `defaultConfigTextFor` (`config.go`), the `switch` in `doAction` (`app.go`), and `actionHelp`

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-
-	"github.com/gdamore/tcell/v2"
 )
 
 // ctxMenu is a context menu for a selection: Explorer's shell menu on
@@ -90,7 +88,7 @@ func (a *App) showMenuLevel(m ctxMenu, title string, entries []menuEntry, parent
 		if e.hasSub {
 			right = "▸"
 		}
-		items = append(items, ListItem{Label: e.text, Hotkey: e.hotkey, Right: right, Dim: e.dim, Data: e})
+		items = append(items, ListItem{Label: e.text, Hotkey: e.hotkey, Right: right, Sub: e.hasSub, Dim: e.dim, Data: e})
 	}
 	d := a.list(title, items, func(_ int, li ListItem) {
 		e := li.Data.(menuEntry)
@@ -121,25 +119,8 @@ func (a *App) showMenuLevel(m ctxMenu, title string, entries []menuEntry, parent
 			m.Close()
 		}
 	}
-	d.OnKey = func(a *App, d *ListDialog, ev *tcell.EventKey) bool {
-		// Right opens a submenu, Left goes back, like in Windows menus.
-		switch keyName(ev) {
-		case "Right":
-			if d.Cursor < len(d.Items) {
-				if e, ok := d.Items[d.Cursor].Data.(menuEntry); ok && e.hasSub {
-					d.select_(a)
-					return true
-				}
-			}
-		case "Left":
-			if parent != nil {
-				a.pop()
-				parent()
-				return true
-			}
-		}
-		return false
-	}
+	// Right enters a submenu and Left goes back one level (OnClose above);
+	// ListDialog does that for every menu.
 }
 
 // contextMenuTitle is used by the non-Windows menus for a sensible caption.

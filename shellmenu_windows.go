@@ -31,8 +31,6 @@ var (
 	iidIContextMenu  = windows.GUID{Data1: 0x000214E4, Data4: [8]byte{0xC0, 0, 0, 0, 0, 0, 0, 0x46}}
 	iidIContextMenu2 = windows.GUID{Data1: 0x000214F4, Data4: [8]byte{0xC0, 0, 0, 0, 0, 0, 0, 0x46}}
 	iidIContextMenu3 = windows.GUID{Data1: 0xBCFCE0A0, Data2: 0xEC17, Data3: 0x11d0, Data4: [8]byte{0x8D, 0x10, 0x00, 0xA0, 0xC9, 0x0F, 0x27, 0x19}}
-
-	comReady bool
 )
 
 const (
@@ -117,12 +115,13 @@ type shellMenu struct {
 
 // openShellMenu builds the Explorer context menu for the given files in dir.
 func openShellMenu(dir string, names []string) (*shellMenu, error) {
-	if !comReady {
-		// S_FALSE (already initialised on this thread) is reported as an
-		// error by the wrapper; any real problem shows up in the calls below.
-		_ = windows.CoInitializeEx(0, coinitApartmentThreaded)
-		comReady = true
-	}
+	// COM apartments are per thread, so this cannot be done once globally:
+	// a caller on another thread would find no apartment and every shell
+	// call would fail. CoInitializeEx is counted per thread and returns
+	// S_FALSE (reported as an error by the wrapper) when the thread already
+	// has one, so calling it every time is right and cheap. Any real problem
+	// shows up in the calls below.
+	_ = windows.CoInitializeEx(0, coinitApartmentThreaded)
 	m := &shellMenu{}
 	var err error
 	if m.dirW, err = windows.UTF16PtrFromString(dir); err != nil {

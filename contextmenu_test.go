@@ -9,6 +9,10 @@ import (
 )
 
 func TestContextMenuOpensAndNavigates(t *testing.T) {
+	// The shell's COM objects belong to one thread; NEAR's main goroutine is
+	// locked to one, a test goroutine has to ask.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	a, _ := testApp(t)
 	a.tab().SetCursorOn("file1.txt")
 	key(a, "Shift+F10")

@@ -357,7 +357,7 @@ func (a *App) openMenu(m *Menu) *ListDialog {
 		if it.Submenu != "" {
 			right = "▸"
 		}
-		items = append(items, ListItem{Label: it.Title, Hotkey: hk, Right: right, Data: i})
+		items = append(items, ListItem{Label: it.Title, Hotkey: hk, Right: right, Sub: it.Submenu != "", Data: i})
 	}
 	d := a.list(m.Name, items, func(_ int, li ListItem) {
 		it := m.Items[li.Data.(int)]
