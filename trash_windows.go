@@ -4,6 +4,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -65,5 +68,22 @@ func trashPaths(paths []string) error {
 	if op.fAnyOperationsAborted != 0 {
 		return errCancelled
 	}
+	// SHFileOperationW's return value is documented as unreliable, and with
+	// the error UI suppressed the shell can report success while leaving
+	// entries behind. Say what really happened rather than claim success.
+	if left := stillThere(paths); len(left) > 0 {
+		return fmt.Errorf("the %s did not take %s", trashName, strings.Join(left, ", "))
+	}
 	return nil
+}
+
+// stillThere returns the names of the paths that still exist.
+func stillThere(paths []string) []string {
+	var left []string
+	for _, p := range paths {
+		if _, err := os.Lstat(p); err == nil {
+			left = append(left, filepath.Base(p))
+		}
+	}
+	return left
 }
