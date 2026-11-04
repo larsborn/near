@@ -7,6 +7,10 @@ import (
 	"runtime"
 )
 
+// writeClipboard is the Windows way of setting the clipboard; here the
+// helper programs below take UTF-8 and need no special handling.
+func writeClipboard(text string) bool { return false }
+
 // readClipboard returns the system clipboard's text through a helper
 // program (pbpaste, wl-paste, xclip or xsel), if one is available.
 func readClipboard() (string, bool) {

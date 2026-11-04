@@ -12,6 +12,9 @@ import (
 func (a *App) setClipboard(text string) {
 	a.clipboard = text
 	a.screen.SetClipboard([]byte(text))
+	if writeClipboard(text) { // native and exact, including non-ASCII
+		return
+	}
 	if cmd := clipboardWriter(); cmd != nil {
 		cmd.Stdin = strings.NewReader(text)
 		go func() { _ = cmd.Run() }()
@@ -24,7 +27,9 @@ func clipboardWriter() *exec.Cmd {
 	var candidates [][]string
 	switch runtime.GOOS {
 	case "windows":
-		candidates = [][]string{{"clip.exe"}}
+		// No helper: writeClipboard uses the API. clip.exe would decode
+		// stdin in the console's OEM code page and mangle anything but ASCII.
+		return nil
 	case "darwin":
 		candidates = [][]string{{"pbcopy"}}
 	default:

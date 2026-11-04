@@ -134,8 +134,9 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   empty). `Ctrl+U` swaps panels. Sizes are kept across sessions.
 - **Copy path** (`Ctrl+Alt+Insert`): the current entry's full path, or the
   directory when `..` is selected, to the clipboard via the terminal (OSC 52)
-  and a native helper where available (`clip.exe`, `pbcopy`, `wl-copy`,
-  `xclip`, `xsel`).
+  and, on Windows, the clipboard API, elsewhere a native helper where
+  available (`pbcopy`, `wl-copy`, `xclip`, `xsel`). Non-ASCII names such as
+  `Löschanfrage` are copied unchanged.
 - **Copy and move** (`F5`, `F6`) use FAR's dialog: "Rename or move <name>
   to", the destination field, an "Already existing files" choice (Ask,
   Overwrite, Skip, Only newer), "Preserve timestamps" and "Copy contents of
