@@ -103,6 +103,25 @@ func hexDump(data []byte) []string {
 
 func (v *Viewer) rows(a *App) int { return maxInt(1, a.h-2) }
 
+// maxTop is the last line that may stand at the top with the screen still
+// full. Wrapped lines take several rows each, so it is not simply the line
+// count less the row count; getting that wrong put the end of a wrapped
+// file out of reach.
+func (v *Viewer) maxTop(a *App) int {
+	rows := v.rows(a)
+	if !v.Wrap {
+		return maxInt(0, len(v.Lines)-rows)
+	}
+	used := 0
+	for i := len(v.Lines) - 1; i >= 0; i-- {
+		used += len(wrapText(strings.ReplaceAll(v.Lines[i], "\t", "    "), a.w, v.WordWrap))
+		if used >= rows {
+			return i
+		}
+	}
+	return 0
+}
+
 func (v *Viewer) find(a *App, from int) {
 	if v.query == "" {
 		return
@@ -121,7 +140,7 @@ func (v *Viewer) find(a *App, from int) {
 
 func (v *Viewer) HandleKey(a *App, ev *tcell.EventKey) {
 	rows := v.rows(a)
-	maxTop := maxInt(0, len(v.Lines)-rows)
+	maxTop := v.maxTop(a)
 	switch keyName(ev) {
 	case "Esc", "F3", "F10", "q", "Q":
 		a.pop()
@@ -159,6 +178,9 @@ func (v *Viewer) HandleKey(a *App, ev *tcell.EventKey) {
 // wrapText splits a line into rows of at most w cells; with words set it
 // breaks after the last space that fits.
 func wrapText(line string, w int, words bool) []string {
+	if line == "" {
+		return []string{""} // an empty line is still a line
+	}
 	var out []string
 	for line != "" {
 		part := runewidth.Truncate(line, w, "")
@@ -181,11 +203,9 @@ func (v *Viewer) Draw(a *App) {
 	a.fill(0, 0, a.w, a.h, th.Viewer)
 	rows := v.rows(a)
 	y := 1
-	for i := 0; i < rows; i++ {
-		idx := v.Top + i
-		if idx >= len(v.Lines) {
-			break
-		}
+	// Driven by the screen row, not by a count of source lines: a wrapped
+	// line fills several rows, so counting lines would stop short.
+	for idx := v.Top; idx < len(v.Lines) && y <= rows; idx++ {
 		line := strings.ReplaceAll(v.Lines[idx], "\t", "    ")
 		if v.Wrap {
 			for _, part := range wrapText(line, a.w, v.WordWrap) {
@@ -218,8 +238,8 @@ func (v *Viewer) Draw(a *App) {
 	// Header like FAR's viewer: path at the left; mode, encoding, size,
 	// column and position at the right.
 	pct := 100
-	if len(v.Lines) > rows {
-		pct = (v.Top + rows) * 100 / len(v.Lines)
+	if m := v.maxTop(a); m > 0 {
+		pct = clampInt(v.Top*100/m, 0, 100)
 	}
 	mode := "t"
 	if v.hex {
