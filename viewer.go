@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -11,7 +12,16 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-const viewerMaxBytes = 64 << 20
+// Variables rather than constants so that tests can lower them instead of
+// writing files of tens of megabytes.
+var (
+	// viewerMaxBytes is how much of a file the viewer reads. A bigger file
+	// is not refused: the beginning is shown and the viewer says so.
+	viewerMaxBytes int64 = 64 << 20
+	// A hex dump is about four times the size of what it shows, so less of
+	// a binary file is read.
+	viewerHexMaxBytes int64 = 4 << 20
+)
 
 // Viewer shows text (or a hex dump for binary data) full screen.
 type Viewer struct {
@@ -23,12 +33,14 @@ type Viewer struct {
 	WordWrap bool // ... breaking at spaces rather than anywhere (Shift+F2)
 	hex      bool
 	raw      []byte
+	size     int64 // the whole file, which raw may be only the start of
+	cut      bool  // the file was too big to read in full
 	query    string
 	cursor   int
 }
 
 func newViewer(title, text string, hex bool) *Viewer {
-	v := &Viewer{Title: title, hex: hex, Wrap: !hex, WordWrap: true}
+	v := &Viewer{Title: title, hex: hex, Wrap: !hex, WordWrap: true, size: int64(len(text))}
 	v.Lines = strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 	return v
 }
@@ -38,19 +50,33 @@ func newFileViewer(path string) (*Viewer, error) {
 	if err != nil {
 		return nil, err
 	}
-	if st.Size() > viewerMaxBytes {
-		return nil, fmt.Errorf("%s is larger than %d MB", st.Name(), viewerMaxBytes>>20)
-	}
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	probe := data
-	if len(probe) > 8192 {
-		probe = probe[:8192]
+	defer f.Close()
+	// Decide from the first few KB how much is worth reading: a huge file
+	// is shown from the beginning rather than refused.
+	probe := make([]byte, 8192)
+	n, err := io.ReadFull(f, probe)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return nil, err
 	}
+	probe = probe[:n]
 	binary := bytes.IndexByte(probe, 0) >= 0 || !utf8.Valid(probe[:len(probe)-utf8.UTFMax*boolInt(len(probe) == 8192)])
-	v := &Viewer{Title: path, raw: data, Wrap: !binary, WordWrap: true}
+	limit := int64(viewerMaxBytes)
+	if binary {
+		limit = viewerHexMaxBytes
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	data, err := io.ReadAll(io.LimitReader(f, limit))
+	if err != nil {
+		return nil, err
+	}
+	v := &Viewer{Title: path, raw: data, size: st.Size(), Wrap: !binary, WordWrap: true}
+	v.cut = int64(len(data)) < st.Size()
 	if binary {
 		v.hex = true
 		v.Lines = hexDump(data)
@@ -245,7 +271,11 @@ func (v *Viewer) Draw(a *App) {
 	if v.hex {
 		mode = "x"
 	}
-	right := fmt.Sprintf("%s │ UTF-8 │ %d │ Col %d │ %d%% ", mode, len(v.raw), v.Left, pct)
+	size := humanSize(v.size)
+	if v.cut {
+		size = humanSize(int64(len(v.raw))) + " of " + size
+	}
+	right := fmt.Sprintf("%s │ UTF-8 │ %s │ Col %d │ %d%% ", mode, size, v.Left, pct)
 	a.fill(0, 0, a.w, 1, th.KeyLabel)
 	a.print(1, 0, maxInt(0, a.w-2-runewidth.StringWidth(right)), th.KeyLabel, fitRight(v.Title, maxInt(0, a.w-2-runewidth.StringWidth(right))))
 	a.print(a.w-runewidth.StringWidth(right), 0, runewidth.StringWidth(right), th.KeyLabel, right)
@@ -255,7 +285,11 @@ func (v *Viewer) Draw(a *App) {
 	} else if v.Wrap {
 		wrap = "on"
 	}
-	foot := fmt.Sprintf(" line %d/%d  F2 wrap: %s  Shift+F2 word wrap  F7 search  N next  Esc close ", v.Top+1, len(v.Lines), wrap)
+	cut := ""
+	if v.cut {
+		cut = fmt.Sprintf("  only the first %s was read ", humanSize(int64(len(v.raw))))
+	}
+	foot := fmt.Sprintf(" line %d/%d%s  F2 wrap: %s  F7 search  N next  Esc close ", v.Top+1, len(v.Lines), cut, wrap)
 	a.fill(0, a.h-1, a.w, 1, th.KeyLabel)
 	a.print(0, a.h-1, a.w, th.KeyLabel, fitLeft(foot, a.w))
 }

@@ -66,6 +66,69 @@ func TestViewerWrapAndContinuationMarks(t *testing.T) {
 	}
 }
 
+// A file too big to read in full is shown from the beginning instead of
+// being refused, and the viewer says how much it read.
+func TestViewerShowsTheStartOfAHugeFile(t *testing.T) {
+	a, data := testApp(t)
+	a.screen.(interface{ SetSize(int, int) }).SetSize(100, 14)
+	oldText, oldHex := viewerMaxBytes, viewerHexMaxBytes
+	viewerMaxBytes, viewerHexMaxBytes = 2048, 1024
+	t.Cleanup(func() { viewerMaxBytes, viewerHexMaxBytes = oldText, oldHex })
+
+	big := strings.Repeat("line of text\n", 1000) // ~13 KB
+	os.WriteFile(filepath.Join(data, "big.log"), []byte(big), 0o644)
+	a.reloadAll()
+	a.tab().SetCursorOn("big.log")
+	key(a, "F3")
+	v, ok := a.top().(*Viewer)
+	if !ok {
+		t.Fatalf("F3 should open the viewer, got %T", a.top())
+	}
+	if !v.cut {
+		t.Fatal("the viewer should know the file was cut short")
+	}
+	if int64(len(v.raw)) != viewerMaxBytes {
+		t.Fatalf("read %d bytes, want %d", len(v.raw), viewerMaxBytes)
+	}
+	if v.size != int64(len(big)) {
+		t.Fatalf("the whole size should be known: %d, want %d", v.size, len(big))
+	}
+	a.draw()
+	s := screenText(a)
+	if !strings.Contains(s, "only the first 2.0 K was read") {
+		t.Fatalf("the footer should say what was read:\n%s", s)
+	}
+	if !strings.Contains(s, "2.0 K of 12.7 K") {
+		t.Fatalf("the header should show both sizes:\n%s", s)
+	}
+	key(a, "Esc")
+
+	// A binary file is dumped up to the smaller hex limit.
+	bin := append([]byte{0, 1, 2, 3}, make([]byte, 8000)...)
+	os.WriteFile(filepath.Join(data, "big.bin"), bin, 0o644)
+	a.reloadAll()
+	a.tab().SetCursorOn("big.bin")
+	key(a, "F3")
+	v, ok = a.top().(*Viewer)
+	if !ok || !v.hex {
+		t.Fatalf("expected a hex dump, got %T hex=%v", a.top(), v.hex)
+	}
+	if int64(len(v.raw)) != viewerHexMaxBytes || !v.cut {
+		t.Fatalf("hex read %d bytes (cut=%v), want %d", len(v.raw), v.cut, viewerHexMaxBytes)
+	}
+	key(a, "Esc")
+
+	// The editor still refuses: it would have to write the whole file back.
+	a.tab().SetCursorOn("big.log")
+	key(a, "F4")
+	if len(a.dialogs) > 0 {
+		t.Fatalf("the editor must not open a file it cannot hold, got %T", a.top())
+	}
+	if !strings.Contains(a.status, "cannot be edited") {
+		t.Fatalf("the editor should say why: %q", a.status)
+	}
+}
+
 // Blank lines take a row of their own, the screen is filled to the bottom
 // even when lines wrap, and End reaches the last line.
 func TestViewerKeepsBlankLinesAndFillsTheScreen(t *testing.T) {

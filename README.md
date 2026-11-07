@@ -103,7 +103,10 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   lines that continue beyond the screen edge are marked `»`, and `«` once
   scrolled sideways with `Left`/`Right`. The header shows the mode, encoding,
   size, column and position; `F7` searches, `N` finds the next match; binary
-  files are shown as a hex dump.
+  files are shown as a hex dump. A file too big to hold is not refused: the
+  first 64 MB are shown, or 4 MB of a binary one, and the header and footer
+  say how much of it that is. The editor does refuse such a file, since
+  saving would write back only the part it had.
 - **Built-in editor** (`F4`, `Shift+F4` for a new file) modelled on FAR's: `F2`
   save, `Shift+F2` save as, `F7` find, `Shift+F7`/`Alt+F7` next/previous,
   `Ctrl+F7` replace, `Alt+F8` go to line, `Ctrl+Z`/`Ctrl+Shift+Z` undo/redo,

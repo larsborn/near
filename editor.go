@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -51,6 +52,13 @@ func newEditor(path string, tabSize int) (*Editor, error) {
 	if e.tabSize <= 0 {
 		e.tabSize = 4
 	}
+	// Check the size before reading: the editor must hold the whole file,
+	// since saving writes it all back, and a huge one is refused rather
+	// than read into memory first. F3 shows the beginning of such a file.
+	if st, serr := os.Stat(path); serr == nil && st.Size() > viewerMaxBytes {
+		return nil, fmt.Errorf("%s is larger than %s and cannot be edited; F3 shows the beginning of it",
+			filepath.Base(path), humanSize(viewerMaxBytes))
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -59,9 +67,6 @@ func newEditor(path string, tabSize int) (*Editor, error) {
 		e.isNew = true
 		e.lines = [][]rune{{}}
 		return e, nil
-	}
-	if len(data) > viewerMaxBytes {
-		return nil, fmt.Errorf("%s is larger than %d MB", path, viewerMaxBytes>>20)
 	}
 	if bytes.IndexByte(data, 0) >= 0 {
 		return nil, fmt.Errorf("%s is a binary file", path)
