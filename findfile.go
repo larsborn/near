@@ -145,13 +145,11 @@ func (d *FindDialog) HandleKey(a *App, ev *tcell.EventKey) {
 		case 'm':
 			d.focus = findFocusMasks
 			return
-		case 't':
-			d.focus = findFocusTextHex
-			d.spec.Hex = false
-			return
-		case 'h':
-			d.focus = findFocusTextHex
-			d.spec.Hex = true
+		case 't', 'h':
+			// Choosing Text or Hex is only ever a prelude to typing what to
+			// look for, so the field gets the focus, not the radio button.
+			d.spec.Hex = unicode.ToLower(ev.Rune()) == 'h'
+			d.focus = findFocusText
 			return
 		case 'c':
 			d.toggle(findFocusCase)

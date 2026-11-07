@@ -25,6 +25,27 @@ func TestFindFileDialogAndResults(t *testing.T) {
 			t.Fatalf("dialog is missing %q:\n%s", want, txt)
 		}
 	}
+	// Alt+T and Alt+H pick the kind of content and then hand over to the
+	// field, so the text can be typed straight away.
+	key(a, "Alt+H")
+	if !d.spec.Hex || d.focus != findFocusText {
+		t.Fatalf("Alt+H: hex=%v focus=%d, want hex with the text field focused", d.spec.Hex, d.focus)
+	}
+	typeText(a, "4d5a")
+	if d.text.String() != "4d5a" {
+		t.Fatalf("typing after Alt+H went somewhere else: %q", d.text.String())
+	}
+	key(a, "Alt+T")
+	if d.spec.Hex || d.focus != findFocusText {
+		t.Fatalf("Alt+T: hex=%v focus=%d, want text with the field focused", d.spec.Hex, d.focus)
+	}
+	d.text.Set("")
+	key(a, "Alt+M") // back to the masks for the rest of the test
+	if d.focus != findFocusMasks {
+		t.Fatalf("Alt+M should focus the mask field, focus=%d", d.focus)
+	}
+	d.masks.Anchor, d.masks.Cur = 0, len(d.masks.Text)
+
 	// The mask is preselected, so typing replaces it.
 	typeText(a, "*.md;*.jpg")
 	key(a, "Enter")
