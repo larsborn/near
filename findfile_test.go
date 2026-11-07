@@ -79,6 +79,41 @@ func TestFindFileDialogAndResults(t *testing.T) {
 	_ = d
 }
 
+// What a Find file content search looked for is carried into the viewer:
+// F3 on a result opens on the first hit and marks it.
+func TestFindFileContentCarriesIntoTheViewer(t *testing.T) {
+	a, data := testApp(t)
+	a.screen.(interface{ SetSize(int, int) }).SetSize(70, 14)
+	doc := "first line\nsecond line\nthird line\nnginx is here\n"
+	os.WriteFile(filepath.Join(data, "conf.txt"), []byte(doc), 0o644)
+	a.reloadAll()
+
+	key(a, "Alt+F7")
+	typeText(a, "*.txt") // the mask field is preselected
+	key(a, "Alt+T")      // Text, with the content field focused
+	typeText(a, "nginx")
+	key(a, "Enter")
+	if a.tab().Find == nil || len(a.tab().Entries) < 2 {
+		t.Fatalf("the search should have found conf.txt: %v", names(a.tab()))
+	}
+	a.tab().SetCursorOn("conf.txt")
+	key(a, "F3")
+	v, ok := a.top().(*Viewer)
+	if !ok {
+		t.Fatalf("F3 should open the viewer, got %T", a.top())
+	}
+	if v.query != "nginx" {
+		t.Fatalf("the viewer should know what was searched for, query=%q", v.query)
+	}
+	if v.cursor != 3 {
+		t.Fatalf("it should open on the hit, cursor is on line %d", v.cursor)
+	}
+	a.draw()
+	if s := screenText(a); !strings.Contains(s, `"nginx" on line 4`) {
+		t.Fatalf("the viewer should report the hit:\n%s", s)
+	}
+}
+
 // Content search with the whole-word and case options, and "Current
 // folder only" not descending.
 func TestFindFileContent(t *testing.T) {

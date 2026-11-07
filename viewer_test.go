@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 // The viewer wraps by default like FAR's; F2 switches wrapping off, which
@@ -63,6 +65,72 @@ func TestViewerWrapAndContinuationMarks(t *testing.T) {
 	}
 	if strings.HasPrefix(rows[1], "«") {
 		t.Fatalf("the short line has nothing to the left: %q", rows[1])
+	}
+}
+
+// Searching in the viewer marks every hit, says what it found, and offers
+// the same text again, selected, the next time.
+func TestViewerSearchMarksHits(t *testing.T) {
+	a, data := testApp(t)
+	a.screen.(interface{ SetSize(int, int) }).SetSize(60, 14)
+	a.draw()
+	doc := "first line\nserver { listen 80; }\nnothing here\nnginx again nginx\n"
+	os.WriteFile(filepath.Join(data, "conf.txt"), []byte(doc), 0o644)
+	a.reloadAll()
+	a.tab().SetCursorOn("conf.txt")
+	key(a, "F3")
+	v, ok := a.top().(*Viewer)
+	if !ok {
+		t.Fatalf("expected the viewer, got %T", a.top())
+	}
+	key(a, "F7")
+	typeText(a, "nginx")
+	key(a, "Enter")
+	if v.query != "nginx" || v.cursor != 3 {
+		t.Fatalf("search put the cursor on line %d with query %q", v.cursor, v.query)
+	}
+	a.draw()
+	if s := screenText(a); !strings.Contains(s, `"nginx" on line 4 of 1 lines with it`) {
+		t.Fatalf("the footer should report the hit:\n%s", s)
+	}
+	// Both occurrences on the line are drawn reversed: 2 x len("nginx").
+	marked := 0
+	cells, w, _ := a.screen.(tcell.SimulationScreen).GetContents()
+	for i, c := range cells {
+		if i/w != 1 {
+			continue // the found line is the first one shown
+		}
+		if _, _, attr := c.Style.Decompose(); attr&tcell.AttrReverse != 0 {
+			marked++
+		}
+	}
+	if marked != 10 {
+		t.Fatalf("both occurrences should be marked (10 cells), found %d", marked)
+	}
+	// Searching again offers the same text, selected, so typing replaces it.
+	key(a, "F7")
+	d, ok := a.top().(*InputDialog)
+	if !ok {
+		t.Fatalf("expected the search dialog, got %T", a.top())
+	}
+	if d.Edit.String() != "nginx" {
+		t.Fatalf("the search text should be offered again, got %q", d.Edit.String())
+	}
+	if d.Edit.SelectedText() != "nginx" {
+		t.Fatalf("it should be selected, selection is %q", d.Edit.SelectedText())
+	}
+	typeText(a, "server")
+	key(a, "Enter")
+	if v.query != "server" || v.cursor != 1 {
+		t.Fatalf("typing should have replaced it: query %q line %d", v.query, v.cursor)
+	}
+	// Something that is not there says so instead of moving.
+	key(a, "F7")
+	typeText(a, "zzz")
+	key(a, "Enter")
+	a.draw()
+	if s := screenText(a); !strings.Contains(s, `"zzz" is not in this file`) {
+		t.Fatalf("a miss should be reported in the viewer:\n%s", s)
 	}
 }
 

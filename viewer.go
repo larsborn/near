@@ -37,6 +37,7 @@ type Viewer struct {
 	cut      bool  // the file was too big to read in full
 	query    string
 	cursor   int
+	note     string // what the last search did, shown in the footer
 }
 
 func newViewer(title, text string, hex bool) *Viewer {
@@ -153,15 +154,23 @@ func (v *Viewer) find(a *App, from int) {
 		return
 	}
 	q := strings.ToLower(v.query)
+	hits := 0
+	for _, l := range v.Lines {
+		if strings.Contains(strings.ToLower(l), q) {
+			hits++
+		}
+	}
 	for i := 0; i < len(v.Lines); i++ {
 		idx := (from + i) % len(v.Lines)
 		if strings.Contains(strings.ToLower(v.Lines[idx]), q) {
 			v.cursor = idx
 			v.Top = idx
+			// The status line is under the viewer, so say it here.
+			v.note = fmt.Sprintf("%q on line %d of %d lines with it", v.query, idx+1, hits)
 			return
 		}
 	}
-	a.setStatus("Not found: " + v.query)
+	v.note = fmt.Sprintf("%q is not in this file", v.query)
 }
 
 func (v *Viewer) HandleKey(a *App, ev *tcell.EventKey) {
@@ -192,10 +201,13 @@ func (v *Viewer) HandleKey(a *App, ev *tcell.EventKey) {
 	case "Shift+F2":
 		v.WordWrap = !v.WordWrap
 	case "F7", "/", "Ctrl+F":
-		a.input("Search", "Text:", v.query, func(s string) {
-			v.query = s
+		d := a.input("Search", "Text:", v.query, func(s string) {
+			v.query, a.lastContentSearch = s, s
 			v.find(a, v.Top)
 		})
+		// What was searched for last is offered again, selected, so that
+		// typing replaces it and Enter repeats it.
+		d.Edit.Anchor, d.Edit.Cur = 0, len(d.Edit.Text)
 	case "n", "N":
 		v.find(a, v.cursor+1)
 	}
@@ -224,6 +236,31 @@ func wrapText(line string, w int, words bool) []string {
 	return out
 }
 
+// markMatches paints every occurrence of the search text in a row that has
+// just been drawn, so a hit can be seen rather than only jumped to.
+func (v *Viewer) markMatches(a *App, row string, y int) {
+	if v.query == "" || row == "" {
+		return
+	}
+	low, q := strings.ToLower(row), strings.ToLower(v.query)
+	if len(q) == 0 {
+		return
+	}
+	for off := 0; off+len(q) <= len(low); {
+		i := strings.Index(low[off:], q)
+		if i < 0 {
+			return
+		}
+		i += off
+		if i+len(q) > len(row) {
+			return
+		}
+		x := runewidth.StringWidth(row[:i])
+		a.print(x, y, a.w-x, a.theme.Viewer.Reverse(true), row[i:i+len(q)])
+		off = i + len(q)
+	}
+}
+
 func (v *Viewer) Draw(a *App) {
 	th := a.theme
 	a.fill(0, 0, a.w, a.h, th.Viewer)
@@ -239,6 +276,7 @@ func (v *Viewer) Draw(a *App) {
 					break
 				}
 				a.print(0, y, a.w, th.Viewer, part)
+				v.markMatches(a, part, y)
 				y++
 			}
 			if y > rows {
@@ -253,6 +291,7 @@ func (v *Viewer) Draw(a *App) {
 			line = runewidth.TruncateLeft(line, v.Left, "")
 		}
 		a.print(0, y, a.w, th.Viewer, line)
+		v.markMatches(a, line, y)
 		if v.Left > 0 && width > v.Left {
 			a.print(0, y, 1, th.Viewer, "«")
 		}
@@ -290,6 +329,9 @@ func (v *Viewer) Draw(a *App) {
 		cut = fmt.Sprintf("  only the first %s was read ", humanSize(int64(len(v.raw))))
 	}
 	foot := fmt.Sprintf(" line %d/%d%s  F2 wrap: %s  F7 search  N next  Esc close ", v.Top+1, len(v.Lines), cut, wrap)
+	if v.note != "" {
+		foot = " " + v.note + "   N: next   F7: search again   Esc: close "
+	}
 	a.fill(0, a.h-1, a.w, 1, th.KeyLabel)
 	a.print(0, a.h-1, a.w, th.KeyLabel, fitLeft(foot, a.w))
 }

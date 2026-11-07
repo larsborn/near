@@ -24,38 +24,39 @@ func (p *Panel) Tab() *Tab { return p.Tabs[p.Active] }
 
 // App is the whole file manager.
 type App struct {
-	screen        tcell.Screen
-	cfg           *Config
-	keymap        map[string]string
-	theme         *Theme
-	panels        [2]*Panel
-	active        int
-	dialogs       []Dialog
-	status        string
-	statusErr     bool
-	index         *Index
-	quit          bool
-	qsActive      bool
-	qsText        []rune
-	w, h          int
-	showHidden    bool
-	cmd           *LineEdit // the command line at the bottom
-	history       []string  // command history, oldest first
-	histPos       int
-	dirHistory    []string              // directories visited, oldest first
-	fileHistory   []string              // files viewed, edited or opened, oldest first
-	hidden        [2]bool               // individual panels hidden (Ctrl+F1 / Ctrl+P)
-	hideAll       bool                  // both panels hidden (Ctrl+O)
-	heights       [2]int                // rows taken off a panel's height (Ctrl+Up/Down), 0 = full
-	split         int                   // shift of the divider from the middle (Ctrl+Left/Right)
-	clipboard     string                // last text copied inside NEAR
-	readClip      func() (string, bool) // system clipboard reader; nil in tests
-	tabPending    string                // command line text at an ambiguous Tab; a second Tab lists
-	lastFind      findSpec              // what the Find file dialog asked for last time
-	console       *Console              // output of commands run from the command line
-	running       *exec.Cmd
-	runStart      time.Time
-	restorePanels bool // panels were visible before the command: show them again when it ends
+	screen            tcell.Screen
+	cfg               *Config
+	keymap            map[string]string
+	theme             *Theme
+	panels            [2]*Panel
+	active            int
+	dialogs           []Dialog
+	status            string
+	statusErr         bool
+	index             *Index
+	quit              bool
+	qsActive          bool
+	qsText            []rune
+	w, h              int
+	showHidden        bool
+	cmd               *LineEdit // the command line at the bottom
+	history           []string  // command history, oldest first
+	histPos           int
+	dirHistory        []string              // directories visited, oldest first
+	fileHistory       []string              // files viewed, edited or opened, oldest first
+	hidden            [2]bool               // individual panels hidden (Ctrl+F1 / Ctrl+P)
+	hideAll           bool                  // both panels hidden (Ctrl+O)
+	heights           [2]int                // rows taken off a panel's height (Ctrl+Up/Down), 0 = full
+	split             int                   // shift of the divider from the middle (Ctrl+Left/Right)
+	clipboard         string                // last text copied inside NEAR
+	readClip          func() (string, bool) // system clipboard reader; nil in tests
+	tabPending        string                // command line text at an ambiguous Tab; a second Tab lists
+	lastFind          findSpec              // what the Find file dialog asked for last time
+	lastContentSearch string                // text last looked for inside files (Find file, viewer)
+	console           *Console              // output of commands run from the command line
+	running           *exec.Cmd
+	runStart          time.Time
+	restorePanels     bool // panels were visible before the command: show them again when it ends
 
 	lastProgress     time.Time // last progress box redraw
 	lastProgressItem string

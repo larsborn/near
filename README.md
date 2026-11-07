@@ -102,7 +102,11 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   wrapping off and `Shift+F2` between word and character wrapping. Unwrapped
   lines that continue beyond the screen edge are marked `»`, and `«` once
   scrolled sideways with `Left`/`Right`. The header shows the mode, encoding,
-  size, column and position; `F7` searches, `N` finds the next match; binary
+  size, column and position. `F7` searches and `N` finds the next match:
+  every occurrence on screen is marked, the footer says which line was
+  found and how many lines hold the text, and the next search offers the
+  same text again, selected. What a Find file content search looked for is
+  carried over, so `F3` on a result opens on the first hit. Binary
   files are shown as a hex dump. A file too big to hold is not refused: the
   first 64 MB are shown, or 4 MB of a binary one, and the header and footer
   say how much of it that is. The editor does refuse such a file, since

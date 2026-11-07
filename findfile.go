@@ -100,6 +100,9 @@ func (d *FindDialog) accept(a *App) {
 	}
 	a.pop()
 	a.lastFind = d.spec
+	if d.spec.Text != "" && !d.spec.Hex {
+		a.lastContentSearch = d.spec.Text // F3 on a result marks it straight away
+	}
 	a.runFind(a.tab(), d.spec)
 }
 

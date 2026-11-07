@@ -479,6 +479,12 @@ func (a *App) viewFile(full string) {
 		a.setErr(err)
 		return
 	}
+	// Carry over what was last looked for inside files: the hits are marked
+	// at once after a Find file content search, the view opens on the first
+	// of them, and F7 offers the same text again.
+	if v.query = a.lastContentSearch; v.query != "" {
+		v.find(a, 0)
+	}
 	a.fileHistory = pushHistory(a.fileHistory, full, historyMax)
 	a.push(v)
 }
