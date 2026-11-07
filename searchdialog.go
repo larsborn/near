@@ -24,6 +24,9 @@ type SearchDialog struct {
 	gen     int    // generation of the latest query
 	busy    bool   // a search is running
 	pending bool   // the query changed while a search was running
+	note    string // what the last action did, shown in the footer
+	box     rect   // where the dialog was drawn, for the mouse
+	listTop int    // screen row of the first result
 }
 
 // EventSearchResult delivers results computed in the background.
@@ -107,7 +110,19 @@ func (d *SearchDialog) open(a *App, newTab bool) {
 
 func (d *SearchDialog) HandleKey(a *App, ev *tcell.EventKey) {
 	rows := d.rows(a)
-	switch keyName(ev) {
+	name := keyName(ev)
+	d.note = ""
+	// The panel keys for copying a path and for the context menu work on a
+	// result too, whatever they are bound to.
+	if ok, dirOnly := a.copyPathKey(name); ok {
+		d.copyResult(a, dirOnly)
+		return
+	}
+	if a.keymap[name] == "context_menu" {
+		d.showMenu(a)
+		return
+	}
+	switch name {
 	case "Esc":
 		a.pop()
 	case "Enter":
@@ -135,6 +150,86 @@ func (d *SearchDialog) HandleKey(a *App, ev *tcell.EventKey) {
 	}
 }
 
+// current returns the selected result, or "".
+func (d *SearchDialog) current() string {
+	if d.cursor < 0 || d.cursor >= len(d.results) {
+		return ""
+	}
+	return d.results[d.cursor]
+}
+
+// copyResult copies the selected result's path, or only the directory it
+// is in, to the clipboard.
+func (d *SearchDialog) copyResult(a *App, dirOnly bool) {
+	p := d.current()
+	if p == "" {
+		return
+	}
+	what := "path"
+	if dirOnly {
+		p, what = filepath.Dir(p), "directory"
+	}
+	a.setClipboard(p)
+	d.note = "Copied the " + what + ": " + p
+}
+
+// showMenu offers what can be done with the selected result, with the keys
+// that do the same thing.
+func (d *SearchDialog) showMenu(a *App) {
+	if d.current() == "" {
+		return
+	}
+	copyKey := a.keyFor("copy_path")
+	items := []ListItem{
+		{Label: "Go to the file", Hotkey: 'G', Right: "Enter", Data: "goto"},
+		{Label: "Open in a new tab", Hotkey: 'O', Right: "Ctrl+T", Data: "tab"},
+		{Sep: true},
+		{Label: "Copy the path", Hotkey: 'C', Right: copyKey, Data: "copy"},
+		{Label: "Copy the directory", Hotkey: 'D', Right: shiftKey(copyKey), Data: "copydir"},
+		{Sep: true},
+		{Label: "Rebuild the index", Hotkey: 'R', Right: "Ctrl+R", Data: "reindex"},
+	}
+	m := a.list(filepath.Base(d.current()), items, func(_ int, li ListItem) {
+		switch li.Data.(string) {
+		case "goto":
+			d.open(a, false)
+		case "tab":
+			d.open(a, true)
+		case "copy":
+			d.copyResult(a, false)
+		case "copydir":
+			d.copyResult(a, true)
+		case "reindex":
+			a.rebuildIndex()
+		}
+	})
+	m.Menu = true
+}
+
+// HandleMouse lets the mouse pick a result and open the menu on it.
+func (d *SearchDialog) HandleMouse(a *App, ev *tcell.EventMouse) {
+	x, y := ev.Position()
+	b := ev.Buttons()
+	switch {
+	case b&tcell.WheelUp != 0:
+		d.cursor = clampInt(d.cursor-1, 0, maxInt(0, len(d.results)-1))
+		return
+	case b&tcell.WheelDown != 0:
+		d.cursor = clampInt(d.cursor+1, 0, maxInt(0, len(d.results)-1))
+		return
+	}
+	if x < d.box.x || x >= d.box.x+d.box.w || y < d.listTop || y >= d.listTop+d.rows(a) {
+		return
+	}
+	if idx := d.top + (y - d.listTop); idx < len(d.results) {
+		d.cursor = idx
+		d.note = ""
+		if b&tcell.ButtonSecondary != 0 {
+			d.showMenu(a)
+		}
+	}
+}
+
 func (d *SearchDialog) Draw(a *App) {
 	th := a.theme
 	// Results may have changed because the index finished building.
@@ -145,6 +240,7 @@ func (d *SearchDialog) Draw(a *App) {
 	w := clampInt(a.w-4, 40, a.w)
 	h := rows + 5
 	x, y := a.center(w, h)
+	d.box, d.listTop = rect{x, y, w, h}, y+3
 	a.drawBox(x, y, w, h, th.Dialog, "Search file names")
 	a.print(x+2, y+1, 8, th.Dialog, "Find:")
 	d.edit.Draw(a, x+8, y+1, w-10, th.InputFocus, true)
@@ -211,7 +307,10 @@ func (d *SearchDialog) Draw(a *App) {
 	default:
 		status = fmt.Sprintf("%d matches", d.total)
 	}
-	foot := "Enter: go to   Ctrl+T: open in new tab   Ctrl+R: rebuild index   Esc: close"
+	foot := fmt.Sprintf("Enter: go to   Ctrl+T: new tab   Ctrl+R: rebuild   %s: menu   Esc: close", a.keyFor("context_menu"))
+	if d.note != "" {
+		foot = d.note
+	}
 	status = fitLeft(status, w-4)
 	sw := runewidth.StringWidth(status)
 	if fw := w - 6 - sw; fw > 0 {

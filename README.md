@@ -86,7 +86,10 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   back to a full rebuild when a journal cannot be used (recreated, wrapped
   after a long absence, disabled, non-NTFS). Words match the name, a term with
   `/` matches the path, `*` and `?` are wildcards. `Enter` jumps to the file,
-  `Ctrl+T` opens it in a new tab.
+  `Ctrl+T` opens it in a new tab, `Ctrl+Alt+Insert` copies the selected
+  result's path and with `Shift` only the directory it is in, `Ctrl+R`
+  rebuilds the index. `Shift+F10`, the context menu key or a right click
+  offer the same with their keys beside them.
 - **Quick search by holding Alt**: `Alt+p`, `Alt+h`, `Alt+o` moves the cursor to
   the first name starting with "pho"; keep typing with or without Alt,
   `Up`/`Down` step through matches, `Enter` opens the match. `Ctrl+S` starts it too.

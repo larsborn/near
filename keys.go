@@ -157,6 +157,43 @@ func allDigits(s string) bool {
 	return s != ""
 }
 
+// keyFor returns the first key bound to an action, for showing in menus.
+func (a *App) keyFor(action string) string {
+	for _, k := range a.cfg.Keys[action] {
+		if n := normKey(k); n != "" {
+			return n
+		}
+	}
+	return ""
+}
+
+// shiftKey is a key name with Shift added, in the order keyName uses.
+func shiftKey(name string) string {
+	if name == "" || strings.Contains(name, "Shift+") {
+		return name
+	}
+	mods, rest := "", name
+	for _, m := range []string{"Ctrl+", "Alt+"} {
+		if strings.HasPrefix(rest, m) {
+			mods, rest = mods+m, strings.TrimPrefix(rest, m)
+		}
+	}
+	return mods + "Shift+" + rest
+}
+
+// copyPathKey reports whether a key is the one bound to copy_path, and
+// whether Shift was held with it, which means the directory only. Dialogs
+// use this so that copying a path works there with the configured key.
+func (a *App) copyPathKey(name string) (ok, dirOnly bool) {
+	if a.keymap[name] == "copy_path" {
+		return true, false
+	}
+	if base := strings.Replace(name, "Shift+", "", 1); base != name && a.keymap[base] == "copy_path" {
+		return true, true
+	}
+	return false, false
+}
+
 // actionHelp documents every built-in action, in display order.
 var actionHelp = []struct{ Action, Help string }{
 	{"help", "Show this help"},
