@@ -23,19 +23,38 @@ type listResult struct {
 	err     error
 }
 
-// listDirWait reads a directory in the background. If it takes longer than
-// slowDirDelay a box tells the user and Esc gives up (the read itself keeps
-// running in its goroutine until the OS returns; its result is dropped).
-func (a *App) listDirWait(path string) ([]Entry, map[string]string, error) {
+// listDirWait returns a directory listing, from the cache when the path is
+// on a network drive and the listing is still fresh. The returned time is
+// when a cached listing was read, and zero when it comes from the disk.
+func (a *App) listDirWait(path string) ([]Entry, map[string]string, time.Time, error) {
+	if e, ok := a.dirs.get(path); ok {
+		return visible(e.entries, a.showHidden), e.notes, e.at, nil
+	}
+	entries, notes, err := a.listDirFresh(path)
+	return entries, notes, time.Time{}, err
+}
+
+// listDirFresh reads a directory in the background, skipping the cache and
+// replacing what is in it. If the read takes longer than slowDirDelay a box
+// tells the user and Esc gives up (the read itself keeps running in its
+// goroutine until the OS returns; its result is dropped).
+func (a *App) listDirFresh(path string) ([]Entry, map[string]string, error) {
 	res := make(chan listResult, 1)
-	showHidden, notesFile := a.showHidden, a.cfg.NotesFile
+	notesFile := a.cfg.NotesFile
+	cache := a.dirs
 	go func() {
-		entries, err := listDirFn(path, showHidden, notesFile)
-		res <- listResult{entries: entries, notes: loadNotes(path, notesFile), err: err}
+		// Read everything, hidden entries included, so that the cache does
+		// not have to be thrown away when hidden files are switched on.
+		entries, err := listDirFn(path, true, notesFile)
+		notes := loadNotes(path, notesFile)
+		if err == nil {
+			cache.put(path, entries, notes)
+		}
+		res <- listResult{entries: entries, notes: notes, err: err}
 	}()
 	select {
 	case r := <-res:
-		return r.entries, r.notes, r.err
+		return visible(r.entries, a.showHidden), r.notes, r.err
 	case <-time.After(slowDirDelay):
 	}
 	start := time.Now()
@@ -43,7 +62,7 @@ func (a *App) listDirWait(path string) ([]Entry, map[string]string, error) {
 	for {
 		select {
 		case r := <-res:
-			return r.entries, r.notes, r.err
+			return visible(r.entries, a.showHidden), r.notes, r.err
 		default:
 		}
 		for a.screen.HasPendingEvent() {

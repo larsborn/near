@@ -127,6 +127,11 @@ listing with cursor, selection map, sort, per-directory notes and a cursor-posit
 A tab with `Find != nil` (`findfile.go`, Alt+F7) lists search results instead: entry names are
 paths relative to `Tab.Path`, so `filepath.Join(t.Path, e.Name)` stays valid everywhere; `loadTab`
 re-checks the results instead of reading the directory, `navigate`/`goUp` leave the mode.
+Directory listings of network drives are cached (`dircache.go`, `network_cache_minutes`,
+`isNetworkPath` per platform in `drives_*.go`): `listDirWait` (cached, used by `navigate` and
+`loadTab`) versus `listDirFresh` (disk, used by `reloadTab`/`reloadAll`, which every mutation
+already calls). The cache holds unfiltered listings, `visible` applies `show_hidden`, and
+Ctrl+R calls `dirs.clear()`. A tab reusing a listing carries `CachedAt`, shown in the path row.
 Directory reads go through `listDirWait` (`slowdir.go`): the listing runs in a goroutine, and
 after `slowDirDelay` a "Reading directory…" box polls for Esc, which returns `errDirCancelled`
 so `navigate`/`loadTab` keep the previous state. `listDirFn` is the hook tests use to slow it.

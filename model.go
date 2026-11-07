@@ -55,6 +55,7 @@ type Tab struct {
 	Err      error
 	posMem   map[string]string // directory -> name the cursor was on
 	Find     *findState        // set while the tab shows Find file results
+	CachedAt time.Time         // when a listing reused from the cache was read; zero if fresh
 }
 
 func newTab(path string) *Tab {

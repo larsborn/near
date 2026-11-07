@@ -146,8 +146,13 @@ func (a *App) drawPanel(idx, x, y, w, h int) {
 		pst = th.Info
 	}
 	flag := ""
+	if !t.CachedAt.IsZero() {
+		// A listing reused from the network cache says how old it is, so
+		// nobody mistakes it for what is on the server right now.
+		flag = " cached " + fmtAge(time.Since(t.CachedAt)) + " "
+	}
 	if a.showHidden {
-		flag = " hidden "
+		flag += " hidden "
 	}
 	pathRow := t.Path
 	if t.Find != nil {

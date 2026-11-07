@@ -69,6 +69,7 @@ type App struct {
 	conRows          []conLine       // the console rows drawn last, for copying a selection
 	conRowTop        int             // screen row of conRows[0]
 	sel              conSelection    // mouse selection in the console
+	dirs             *dirCache       // directory listings of network drives
 	cmdStdin         io.WriteCloser  // stdin of the running console command
 	lastClick        time.Time
 	lastClickAt      [2]int
@@ -148,6 +149,7 @@ func newApp(cfg *Config, s tcell.Screen) *App {
 	a.keymap = buildKeymap(cfg)
 	a.index = newIndex()
 	a.console = newConsole(a.theme.Cmd, cfg.ConsoleLines)
+	a.dirs = newDirCache(time.Duration(cfg.NetworkCacheMinutes)*time.Minute, isNetworkPath)
 	a.transfers = newTransferQueue(s)
 	for i := range a.panels {
 		a.panels[i] = &Panel{}
@@ -486,25 +488,43 @@ func (a *App) other() *Tab   { return a.panels[1-a.active].Tab() }
 
 // loadTab re-reads a tab's directory with the slow-read box; giving up
 // keeps the previous listing.
-func (a *App) loadTab(t *Tab) {
+func (a *App) loadTab(t *Tab) { a.readTab(t, true) }
+
+// reloadTab re-reads from the disk, past any cached listing.
+func (a *App) reloadTab(t *Tab) { a.readTab(t, false) }
+
+func (a *App) readTab(t *Tab, cached bool) {
 	if t.Find != nil {
 		a.applyFind(t)
 		return
 	}
-	entries, notes, err := a.listDirWait(t.Path)
+	var (
+		entries  []Entry
+		notes    map[string]string
+		cachedAt time.Time
+		err      error
+	)
+	if cached {
+		entries, notes, cachedAt, err = a.listDirWait(t.Path)
+	} else {
+		entries, notes, err = a.listDirFresh(t.Path)
+	}
 	if errors.Is(err, errDirCancelled) {
 		a.setStatus("Directory read abandoned; showing the previous listing")
 		return
 	}
 	t.Apply(entries, notes, err)
+	t.CachedAt = cachedAt
 	if t.Err != nil {
 		a.setErr(t.Err)
 	}
 }
 
+// reloadAll re-reads both panels from the disk. Everything that changes a
+// directory ends here, so a cached listing never outlives an operation.
 func (a *App) reloadAll() {
 	for _, p := range a.panels {
-		a.loadTab(p.Tab())
+		a.reloadTab(p.Tab())
 	}
 }
 
@@ -521,7 +541,7 @@ func (a *App) navigate(t *Tab, path, cursorName string) error {
 	}
 	// Read the new directory first: if that is slow and the user gives up,
 	// the tab stays where it was.
-	entries, notes, err := a.listDirWait(path)
+	entries, notes, cachedAt, err := a.listDirWait(path)
 	if errors.Is(err, errDirCancelled) {
 		a.setStatus("Directory read abandoned; staying in " + fitRight(t.Path, 40))
 		return nil
@@ -534,6 +554,7 @@ func (a *App) navigate(t *Tab, path, cursorName string) error {
 	t.Cursor, t.Top = 0, 0
 	t.Selected = map[string]bool{}
 	t.Apply(entries, notes, err)
+	t.CachedAt = cachedAt
 	if t.Err != nil {
 		return t.Err
 	}
@@ -864,6 +885,7 @@ func (a *App) doAction(action string) {
 		a.showHidden = !a.showHidden
 		a.reloadAll()
 	case "refresh":
+		a.dirs.clear() // Ctrl+R is also how a cached network listing is thrown away
 		a.reloadAll()
 		a.screen.Sync() // also repaints every cell, repairing a screen another program wrote on
 		a.setStatus("Reloaded")

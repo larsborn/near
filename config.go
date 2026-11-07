@@ -55,6 +55,7 @@ type Config struct {
 	InternalEditor      bool                `toml:"internal_editor"`
 	EditorTabSize       int                 `toml:"editor_tab_size"`
 	NotesFile           string              `toml:"notes_file"`
+	NetworkCacheMinutes int                 `toml:"network_cache_minutes"`
 	SearchRoots         []string            `toml:"search_roots"`
 	SearchExclude       []string            `toml:"search_exclude"`
 	SearchMaxResults    int                 `toml:"search_max_results"`
@@ -300,6 +301,11 @@ command_wait = true      # after a command run outside (menu item, Shift+Enter),
 date_format = "2006-01-02"         # Go time layout for the Date column
 time_format = "15:04"              # ... and the Time column
 notes_file = ".near-notes"         # per-directory hidden notes file (JSON)
+# Listing a directory on a network drive can take seconds, so listings from
+# network drives (mapped drives and UNC paths on Windows, NFS/SMB/sshfs and
+# the like elsewhere) are reused while navigating. Ctrl+R always re-reads and
+# forgets them, as does every change NEAR makes itself. 0 switches it off.
+network_cache_minutes = 60
 
 # Everything-like search: directories to index and what to skip. "*" stands
 # for every fixed drive (network, removable and subst drives are left out);

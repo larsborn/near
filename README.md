@@ -56,6 +56,12 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   editors, pagers, shells, ssh) run outside instead, as does anything sent
   with `Shift+Enter`.
 - **Esc goes to the parent directory.** Every key is configurable.
+- **Network drives are cached.** Listing a directory on a mapped drive or a
+  share can take seconds, so those listings are reused while navigating
+  (`network_cache_minutes`, default 60; `0` switches it off). A reused
+  listing says `cached 12m` at the right of the path row. `Ctrl+R` forgets
+  the lot and re-reads, and so does every change NEAR makes itself, so a
+  copy, rename or delete is never hidden behind a stale listing.
 - **Enter opens a file** with its associated program. On Windows the launch
   goes through a short-lived detached helper so that the program cannot
   attach to NEAR's console and write over the screen. `Ctrl+R` reloads both
