@@ -83,7 +83,7 @@ func (a *App) showShortcuts(at int) {
 	})
 	d.Menu = true
 	d.Width = clampInt(a.w-10, 44, 80)
-	d.Hint = "Enter or 1-9: go there   Ins: add this directory   Del: remove"
+	d.Hint = "Enter or 1-9: go there   Ins: add this directory   Del: remove (asks first)"
 	d.Cursor = clampInt(at, 0, maxInt(0, len(items)-1))
 	d.OnKey = func(a *App, d *ListDialog, ev *tcell.EventKey) bool {
 		switch keyName(ev) {
@@ -92,7 +92,7 @@ func (a *App) showShortcuts(at int) {
 			return true
 		case "Delete":
 			if i, ok := d.Items[d.Cursor].Data.(int); ok {
-				a.removeShortcut(i)
+				a.confirmRemoveShortcut(i)
 			}
 			return true
 		}
@@ -110,6 +110,23 @@ func (a *App) addShortcut(path string) {
 	}
 	a.cfg.Bookmarks = append(a.cfg.Bookmarks, Bookmark{Name: shortcutLabel(path), Path: path})
 	a.reopenShortcuts(len(a.cfg.Bookmarks)-1, "Added "+path)
+}
+
+// confirmRemoveShortcut asks before dropping an entry; the list is still
+// open underneath, so answering returns straight to it.
+func (a *App) confirmRemoveShortcut(i int) {
+	if i < 0 || i >= len(a.cfg.Bookmarks) {
+		return
+	}
+	b := a.cfg.Bookmarks[i]
+	a.confirm("Folder shortcuts",
+		[]string{fmt.Sprintf("Remove the shortcut %q?", b.Name), fitRight(expandPath(b.Path), 60)},
+		[]string{"Remove", "Cancel"},
+		func(r int) {
+			if r == 0 {
+				a.removeShortcut(i)
+			}
+		})
 }
 
 // removeShortcut drops one entry.

@@ -142,7 +142,7 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   entry, e.g. `pdflatex "!.tex"` on three selected `.tex` files.
 - **Folder shortcuts** (`Ctrl+D`): a numbered list of directories. `1`..`9`
   or `Enter` goes to one, `Ins` adds the panel's directory, `Del` removes
-  the one under the cursor. They are kept in `shortcuts.toml` next to the
+  the one under the cursor after asking. They are kept in `shortcuts.toml` next to the
   config and also appear in the locations dialog.
 - **Histories**, FAR's keys: `Alt+F8` commands (Enter runs, Shift+Enter edits,
   Delete removes), `Alt+F12` folders (Enter goes, Ctrl+T new tab, Shift+Enter

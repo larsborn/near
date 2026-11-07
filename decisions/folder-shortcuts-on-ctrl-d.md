@@ -5,7 +5,7 @@ Status: accepted
 
 ## Decision
 Ctrl+D opens a numbered list of directories: 1 to 9 or Enter go to one, Ins adds the
-panel's directory under its base name, Del removes the one under the cursor. The list is
+panel's directory under its base name, Del removes the one under the cursor after asking. The list is
 `cfg.Bookmarks`, the same entries the locations dialog shows, and edits are written to
 `shortcuts.toml` next to the config, which `loadConfig` then prefers over the `[[bookmarks]]`
 of config.toml. `unselect_all` moved from Ctrl+D to Ctrl+Shift+A, beside `select_all` on

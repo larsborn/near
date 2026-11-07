@@ -82,11 +82,29 @@ func TestFolderShortcuts(t *testing.T) {
 		t.Fatal("going to a shortcut should close the list")
 	}
 
-	// Del removes the one under the cursor.
+	// Del asks first, and cancelling keeps the entry.
 	key(a, "Ctrl+D")
 	d = a.top().(*ListDialog)
 	d.Cursor = 0
 	key(a, "Delete")
+	if _, ok := a.top().(*ConfirmDialog); !ok {
+		t.Fatalf("Del should ask first, got %T", a.top())
+	}
+	if !strings.Contains(screenText(a), "Remove the shortcut") {
+		t.Fatalf("the question should name what goes:\n%s", screenText(a))
+	}
+	key(a, "Esc") // cancel
+	if len(a.cfg.Bookmarks) != 2 {
+		t.Fatalf("cancelling must keep the shortcut: %+v", a.cfg.Bookmarks)
+	}
+	if _, ok := a.top().(*ListDialog); !ok {
+		t.Fatalf("cancelling should return to the list, got %T", a.top())
+	}
+	// Confirming removes it.
+	d = a.top().(*ListDialog)
+	d.Cursor = 0
+	key(a, "Delete")
+	key(a, "Enter")
 	if len(a.cfg.Bookmarks) != 1 || a.cfg.Bookmarks[0].Name != "gamma" {
 		t.Fatalf("Del should have removed the first: %+v", a.cfg.Bookmarks)
 	}
