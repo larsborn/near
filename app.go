@@ -549,6 +549,12 @@ func (a *App) navigate(t *Tab, path, cursorName string) error {
 	if cur := t.Current(); cur != nil {
 		t.posMem[t.Path] = cur.Name
 	}
+	if !t.noHist {
+		if len(t.hist) == 0 && t.Path != "" {
+			t.pushHist(t.Path) // where the panel started, so Back can return
+		}
+		t.pushHist(path)
+	}
 	t.Path = path
 	t.Find = nil
 	t.Cursor, t.Top = 0, 0
@@ -586,6 +592,35 @@ func (a *App) enterCurrent() {
 		return
 	}
 	a.openWithOS(full)
+}
+
+// goBackForward steps through the panel's own list of directories: -1 is
+// back, +1 forward.
+func (a *App) goBackForward(step int) {
+	t := a.tab()
+	pos := t.hpos + step
+	if t.hpos < 0 || pos < 0 || pos >= len(t.hist) {
+		if step < 0 {
+			a.setStatus("No earlier directory in this panel")
+		} else {
+			a.setStatus("No later directory in this panel")
+		}
+		return
+	}
+	t.noHist = true // moving within the list must not rewrite it
+	err := a.navigate(t, t.hist[pos], "")
+	t.noHist = false
+	if err != nil {
+		// Gone since it was visited: drop it and try the one beyond.
+		a.setErr(err)
+		t.hist = append(t.hist[:pos], t.hist[pos+1:]...)
+		if t.hpos > pos {
+			t.hpos--
+		}
+		return
+	}
+	t.hpos = pos
+	a.setStatus(fitRight(t.Path, 60))
 }
 
 func (a *App) goUp() {
@@ -756,6 +791,10 @@ func (a *App) doAction(action string) {
 		a.enterCurrent()
 	case "up_dir":
 		a.goUp()
+	case "go_back":
+		a.goBackForward(-1)
+	case "go_forward":
+		a.goBackForward(1)
 	case "select":
 		t.ToggleSelect()
 		t.MoveCursor(1)

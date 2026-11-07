@@ -56,10 +56,33 @@ type Tab struct {
 	posMem   map[string]string // directory -> name the cursor was on
 	Find     *findState        // set while the tab shows Find file results
 	CachedAt time.Time         // when a listing reused from the cache was read; zero if fresh
+
+	// Where this panel has been, as one path rather than a tree: going back
+	// moves the position, and the next change to a different directory drops
+	// everything that lay ahead.
+	hist   []string
+	hpos   int  // index of the current directory in hist, -1 when empty
+	noHist bool // set while back/forward themselves navigate
+}
+
+// tabHistMax is how many directories a panel remembers.
+const tabHistMax = 64
+
+// pushHist records a directory the panel moved to.
+func (t *Tab) pushHist(path string) {
+	if t.hpos >= 0 && t.hpos < len(t.hist) && foldPath(t.hist[t.hpos]) == foldPath(path) {
+		return // already standing there
+	}
+	t.hist = append(t.hist[:t.hpos+1], path) // whatever lay ahead is gone
+	t.hpos = len(t.hist) - 1
+	if len(t.hist) > tabHistMax {
+		t.hist = append([]string{}, t.hist[len(t.hist)-tabHistMax:]...)
+		t.hpos = len(t.hist) - 1
+	}
 }
 
 func newTab(path string) *Tab {
-	return &Tab{Path: path, Selected: map[string]bool{}, posMem: map[string]string{}}
+	return &Tab{Path: path, Selected: map[string]bool{}, posMem: map[string]string{}, hpos: -1}
 }
 
 // Load (re)reads the directory synchronously, keeping cursor and selection

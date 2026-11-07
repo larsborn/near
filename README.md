@@ -55,7 +55,10 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   Programs that need a real terminal (`interactive_commands` in the config:
   editors, pagers, shells, ssh) run outside instead, as does anything sent
   with `Shift+Enter`.
-- **Esc goes to the parent directory.** Every key is configurable.
+- **Esc goes to the parent directory**, `Ctrl+Alt+Left` back to where the
+  panel came from and `Ctrl+Alt+Right` forward again. Each panel keeps its
+  own list, as one path rather than a tree: opening another directory drops
+  whatever lay ahead. Every key is configurable.
 - **Network drives are cached.** Listing a directory on a mapped drive or a
   share can take seconds, so those listings are reused while navigating
   (`network_cache_minutes`, default 60; `0` switches it off). A reused

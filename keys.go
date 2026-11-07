@@ -207,6 +207,8 @@ var actionHelp = []struct{ Action, Help string }{
 	{"end", "Last entry"},
 	{"enter", "Enter directory / open file"},
 	{"up_dir", "Parent directory"},
+	{"go_back", "Back to the directory this panel came from"},
+	{"go_forward", "Forward again, until another directory is opened"},
 	{"select", "Toggle selection of current entry"},
 	{"select_down", "Toggle selection and move down"},
 	{"select_up", "Toggle selection and move up"},
