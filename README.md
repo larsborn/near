@@ -96,6 +96,8 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
 - **Quick search by holding Alt**: `Alt+p`, `Alt+h`, `Alt+o` moves the cursor to
   the first name starting with "pho"; keep typing with or without Alt,
   `Up`/`Down` step through matches, `Enter` opens the match. `Ctrl+S` starts it too.
+  A character that would leave no match at all is ignored, so what you type
+  always names something in the panel.
 - **Viewer** (`F3`) like FAR's: lines wrap at words by default, `F2` switches
   wrapping off and `Shift+F2` between word and character wrapping. Unwrapped
   lines that continue beyond the screen edge are marked `»`, and `«` once

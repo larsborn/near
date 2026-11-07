@@ -415,11 +415,15 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 	plainRune := ev.Key() == tcell.KeyRune && ev.Modifiers()&(tcell.ModCtrl|tcell.ModAlt|tcell.ModMeta) == 0
 	altRune := ev.Key() == tcell.KeyRune && ev.Modifiers()&(tcell.ModAlt|tcell.ModMeta) != 0 && ev.Modifiers()&tcell.ModCtrl == 0
 
-	// Alt+<character> that is not bound starts a quick search in the panel.
+	// Alt+<character> that is not bound starts a quick search in the panel,
+	// unless nothing in it starts with that character.
 	if altRune && !bound {
-		a.qsActive = true
 		a.qsText = append(a.qsText[:0], ev.Rune())
-		a.quickSearchJump(0)
+		if a.quickSearchJump(0) {
+			a.qsActive = true
+		} else {
+			a.qsText = a.qsText[:0]
+		}
 		return
 	}
 
@@ -667,10 +671,14 @@ func (a *App) handleQuickSearch(ev *tcell.EventKey) bool {
 		return true
 	}
 	// Plain and Alt+character keys both extend the search, so the search
-	// can be typed with Alt held down throughout.
+	// can be typed with Alt held down throughout. A character that would
+	// leave nothing to jump to is dropped, so the search text always names
+	// something in the panel, as in FAR.
 	if ev.Key() == tcell.KeyRune && ev.Modifiers()&tcell.ModCtrl == 0 {
 		a.qsText = append(a.qsText, ev.Rune())
-		a.quickSearchJump(0)
+		if !a.quickSearchJump(0) {
+			a.qsText = a.qsText[:len(a.qsText)-1]
+		}
 		return true
 	}
 	a.qsActive = false
@@ -678,12 +686,13 @@ func (a *App) handleQuickSearch(ev *tcell.EventKey) bool {
 }
 
 // quickSearchJump moves to the next (dir>0), previous (dir<0) or first
-// matching entry starting at the cursor (dir==0).
-func (a *App) quickSearchJump(dir int) {
+// matching entry starting at the cursor (dir==0), and reports whether
+// anything matched.
+func (a *App) quickSearchJump(dir int) bool {
 	t := a.tab()
 	n := len(t.Entries)
 	if n == 0 || len(a.qsText) == 0 {
-		return
+		return false
 	}
 	q := strings.ToLower(string(a.qsText))
 	match := func(i int, prefix bool) bool {
@@ -702,10 +711,11 @@ func (a *App) quickSearchJump(dir int) {
 			i := ((start+k*step(dir))%n + n) % n
 			if match(i, prefix) {
 				t.Cursor = i
-				return
+				return true
 			}
 		}
 	}
+	return false
 }
 
 func step(dir int) int {
