@@ -106,6 +106,12 @@ func loadConfig(path string) (*Config, error) {
 	} else if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("%s: %w", filepath.Join(dir, menusFileName), err)
 	}
+	// Folder shortcuts likewise, from shortcuts.toml.
+	if marks, err := loadShortcutsFile(filepath.Join(dir, shortcutsFileName)); err == nil {
+		cfg.Bookmarks = marks
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("%s: %w", filepath.Join(dir, shortcutsFileName), err)
+	}
 	if cfg.SearchMaxResults <= 0 {
 		cfg.SearchMaxResults = 500
 	}
@@ -373,7 +379,8 @@ select_pattern = ["+"]
 unselect_pattern = ["-"]
 invert_selection = ["*"]
 select_all = ["Ctrl+A"]
-unselect_all = ["Ctrl+D"]
+unselect_all = ["Ctrl+Shift+A"]
+shortcuts = ["Ctrl+D"]              # folder shortcuts: Ins adds this directory, Del removes, 1-9 go
 new_tab = ["Ctrl+T"]
 close_tab = ["Ctrl+W"]
 next_tab = ["Ctrl+PgDn", "Alt+Right"]
@@ -428,7 +435,10 @@ split_right = ["Ctrl+Right"]
 panels_default_width = []              # FAR: Ctrl+Numpad5, which terminals cannot report; bind as you like
 panels_default_height = []             # FAR: Ctrl+Alt+Numpad5
 
-# Bookmarks appear in the locations dialog (Alt+F1).
+# Folder shortcuts: the list Ctrl+D opens, numbered 1-9, and also shown in
+# the locations dialog (Alt+F1). Ins and Del inside that list edit them, and
+# such edits are kept in shortcuts.toml next to this file; once it exists
+# the entries here are ignored.
 [[bookmarks]]
 name = "Home"
 path = "~"

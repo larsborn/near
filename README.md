@@ -140,6 +140,10 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   a literal `!`. They are inserted as they are, so write `"!.!"` where a
   name may contain spaces. A command naming a file runs once per selected
   entry, e.g. `pdflatex "!.tex"` on three selected `.tex` files.
+- **Folder shortcuts** (`Ctrl+D`): a numbered list of directories. `1`..`9`
+  or `Enter` goes to one, `Ins` adds the panel's directory, `Del` removes
+  the one under the cursor. They are kept in `shortcuts.toml` next to the
+  config and also appear in the locations dialog.
 - **Histories**, FAR's keys: `Alt+F8` commands (Enter runs, Shift+Enter edits,
   Delete removes), `Alt+F12` folders (Enter goes, Ctrl+T new tab, Shift+Enter
   other panel), `Alt+F11` viewed and edited files (Enter views, F4 edits,

@@ -926,6 +926,8 @@ func (a *App) doAction(action string) {
 		a.showSearch()
 	case "find_file":
 		a.showFindFile()
+	case "shortcuts":
+		a.showShortcuts(0)
 	case "quick_search":
 		a.qsActive = true
 		a.qsText = a.qsText[:0]
