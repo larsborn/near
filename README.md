@@ -130,7 +130,8 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   following renames, copies and moves made within NEAR.
 - **Quick launch menu** (`F2`) and any number of **custom menus** (`F9` lists
   them, each may have its own key, menus nest). Items run shell commands with
-  placeholders for the current file, the selection and both directories.
+  placeholders for the current file, the selection and both directories, and
+  what they ran goes into the command history like anything else.
   The arrows walk a menu like a folder tree: `Right` enters a submenu as
   `Enter` does, and `Left`, `Backspace` and `Esc` step back out of it one
   level at a time, closing the menu only at the top.
