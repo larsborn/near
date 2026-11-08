@@ -230,6 +230,28 @@ func TestMenuItemRunsInConsole(t *testing.T) {
 	}
 }
 
+// What a menu item ran goes into the command history, expanded as it was
+// run, so Ctrl+E and Alt+F8 can bring it back.
+func TestMenuItemEntersTheHistory(t *testing.T) {
+	a, _ := testApp(t)
+	a.tab().SetCursorOn("file1.txt")
+	before := len(a.history)
+	a.runMenuItem(MenuItem{Title: "Count", Command: "echo {file}"})
+	waitCommand(t, a)
+	if len(a.history) != before+1 {
+		t.Fatalf("history grew by %d entries", len(a.history)-before)
+	}
+	last := a.history[len(a.history)-1]
+	if !strings.Contains(last, "echo") || !strings.Contains(last, "file1.txt") {
+		t.Fatalf("the history should hold the expanded command, got %q", last)
+	}
+	// Ctrl+E brings it back to the command line.
+	key(a, "Ctrl+E")
+	if a.cmd.String() != last {
+		t.Fatalf("Ctrl+E gave %q, want %q", a.cmd.String(), last)
+	}
+}
+
 // A command naming a file runs once per selected entry; FAR's symbols are
 // inserted as they are, several lines run one after another.
 func TestMenuCommandRunsPerSelection(t *testing.T) {

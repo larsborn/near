@@ -550,6 +550,9 @@ func (a *App) runMenuItem(it MenuItem) {
 			if it.Cwd != "" {
 				cwd = a.expandPlaceholders(it.Cwd)
 			}
+			// It ran as a shell command, so it belongs in the command
+			// history: Ctrl+E and Alt+F8 can bring it back and edit it.
+			a.addHistory(line)
 			switch {
 			case it.Detach:
 				a.runShell(line, cwd, false, true)
