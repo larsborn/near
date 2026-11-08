@@ -79,6 +79,45 @@ func TestFindFileDialogAndResults(t *testing.T) {
 	_ = d
 }
 
+// Masks are separated by commas and semicolons only, as in FAR: a space
+// belongs to the mask, so "* hin)*" is one mask and not a list starting
+// with "*", which would match everything.
+func TestFindFileMaskSplitting(t *testing.T) {
+	for _, c := range []struct {
+		in   string
+		want []string
+	}{
+		{"* hin)*", []string{"* hin)*"}},
+		{"*.go;*.md", []string{"*.go", "*.md"}},
+		{"*.go, *.md", []string{"*.go", "*.md"}},
+		{`"a,b*";*.txt`, []string{"a,b*", "*.txt"}},
+		{`" spaced "`, []string{" spaced "}},
+		{"  ", nil},
+	} {
+		got := splitMasks(c.in)
+		if strings.Join(got, "|") != strings.Join(c.want, "|") {
+			t.Fatalf("splitMasks(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+
+	// The whole point: a mask with a space must not match everything.
+	a, data := testApp(t)
+	for _, n := range []string{"ep ALL Hindi EP (1080p hin).ts", "ep (1080p eng).mkv", "other.txt"} {
+		os.WriteFile(filepath.Join(data, n), []byte("x"), 0o644)
+	}
+	a.reloadAll()
+	a.runFind(a.tab(), findSpec{Masks: "* hin)*", Folders: true})
+	var got []string
+	for _, e := range a.tab().Entries {
+		if !e.IsUp {
+			got = append(got, e.Name)
+		}
+	}
+	if len(got) != 1 || got[0] != "ep ALL Hindi EP (1080p hin).ts" {
+		t.Fatalf(`"* hin)*" matched %v`, got)
+	}
+}
+
 // What a Find file content search looked for is carried into the viewer:
 // F3 on a result opens on the first hit and marks it.
 func TestFindFileContentCarriesIntoTheViewer(t *testing.T) {

@@ -71,7 +71,10 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   panels and repaints every cell, which repairs a screen that something
   else did write on.
 - **Find file** (`Alt+F7`), FAR's dialog: one or several file masks
-  (`*.go;*.md`, a mask with a separator matches the relative path), text or
+  separated by commas or semicolons, as in FAR (`*.go;*.md`). A space is
+  part of the mask, so `* hin)*` is one mask; quote a mask that needs a
+  comma or semicolon of its own (`"a,b*"`). A mask with a path separator
+  matches the relative path. Text or
   hex content with case sensitive, whole words and not-containing options,
   folders as results, symbolic links followed, and the search area: from the
   current folder, the current folder only, the selected folders or the

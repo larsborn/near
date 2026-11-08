@@ -441,6 +441,39 @@ func findWalk(dir, root string, recurse bool, spec findSpec, m *findMatcher, vis
 
 // ---------------------------------------------------------------- matching
 
+// splitMasks splits a list of file masks the way FAR does: on commas and
+// semicolons only. A space is part of a mask, not a separator — "* hin)*"
+// is one mask — and a mask that needs a comma or semicolon of its own can
+// be quoted, in which case its spaces are kept too.
+func splitMasks(s string) []string {
+	var out []string
+	var cur strings.Builder
+	inQuote, quoted := false, false
+	flush := func() {
+		m := cur.String()
+		if !quoted {
+			m = strings.TrimSpace(m)
+		}
+		cur.Reset()
+		quoted = false
+		if m != "" {
+			out = append(out, m)
+		}
+	}
+	for _, r := range s {
+		switch {
+		case r == '"':
+			inQuote, quoted = !inQuote, true
+		case (r == ',' || r == ';') && !inQuote:
+			flush()
+		default:
+			cur.WriteRune(r)
+		}
+	}
+	flush()
+	return out
+}
+
 type findMatcher struct {
 	masks     []string // lowercased on case-folding platforms
 	needle    []byte   // content to find, lowercased unless case sensitive
@@ -450,7 +483,7 @@ type findMatcher struct {
 
 func newFindMatcher(spec findSpec, notesFile string) (*findMatcher, error) {
 	m := &findMatcher{spec: spec, notesFile: notesFile}
-	for _, mask := range strings.FieldsFunc(spec.Masks, func(r rune) bool { return r == ',' || r == ';' || r == ' ' }) {
+	for _, mask := range splitMasks(spec.Masks) {
 		if mask == "*.*" {
 			mask = "*"
 		}
