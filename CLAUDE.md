@@ -104,6 +104,9 @@ diff viewer and the editor are all dialogs on one stack. Callbacks run after `a.
 callback may push the next dialog (menus → submenus, replace loop, save prompts). The
 `ListDialog.OnKey` hook is how histories implement Delete/Ctrl+T/Shift+Enter. A list with
 `Menu` set also takes Right into a submenu (`ListItem.Sub`) and Left/Backspace out of it.
+Both menu kinds nest by passing a `back func()` that reopens the level above
+(`openMenuLevel`, `showMenuLevel`), which `OnClose` calls, so Esc steps out one level; the
+user menu's editing keys carry that function along so an edit does not lose the way back.
 
 **Actions** are strings. Adding one means touching three places: the default `[keys]` table inside
 `defaultConfigTextFor` (`config.go`), the `switch` in `doAction` (`app.go`), and `actionHelp`

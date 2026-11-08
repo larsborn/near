@@ -342,7 +342,13 @@ func (a *App) editNote() {
 
 // ---------------------------------------------------------------- menus
 
-func (a *App) openMenu(m *Menu) *ListDialog {
+// openMenu shows a menu at the top level; Esc closes it.
+func (a *App) openMenu(m *Menu) *ListDialog { return a.openMenuLevel(m, nil) }
+
+// openMenuLevel shows one level of a menu. back, when set, reopens the
+// level above, so that Esc (and Left) step out one menu at a time instead
+// of closing the lot.
+func (a *App) openMenuLevel(m *Menu, back func()) *ListDialog {
 	items := make([]ListItem, 0, len(m.Items))
 	for i, it := range m.Items {
 		if it.Title == "-" || it.Title == "---" {
@@ -359,7 +365,15 @@ func (a *App) openMenu(m *Menu) *ListDialog {
 		}
 		items = append(items, ListItem{Label: it.Title, Hotkey: hk, Right: right, Sub: it.Submenu != "", Data: i})
 	}
-	d := a.list(m.Name, items, func(_ int, li ListItem) {
+	name := m.Name // by name: editing may reallocate a.cfg.Menus, making m stale
+	// Reopening this very level, for a submenu to come back to and for the
+	// editing keys to use after they changed something.
+	here := func() {
+		if again := a.cfg.menu(name); again != nil {
+			a.openMenuLevel(again, back)
+		}
+	}
+	d := a.list(name, items, func(_ int, li ListItem) {
 		it := m.Items[li.Data.(int)]
 		if it.Submenu != "" {
 			sub := a.cfg.menu(it.Submenu)
@@ -367,7 +381,7 @@ func (a *App) openMenu(m *Menu) *ListDialog {
 				a.setErr(fmt.Errorf("no menu named %q", it.Submenu))
 				return
 			}
-			a.openMenu(sub)
+			a.openMenuLevel(sub, here)
 			return
 		}
 		if it.Command == "" {
@@ -377,8 +391,11 @@ func (a *App) openMenu(m *Menu) *ListDialog {
 	})
 	d.Menu = true
 	d.Hint = "Ins Del F4 Alt+F4 Ctrl+Up Ctrl+Down"
-	name := m.Name // by name: editing may reallocate a.cfg.Menus, making m stale
-	d.OnKey = func(a *App, d *ListDialog, ev *tcell.EventKey) bool { return a.userMenuKey(name, d, ev) }
+	if back != nil {
+		d.Hint += "   Esc: back"
+		d.OnClose = back
+	}
+	d.OnKey = func(a *App, d *ListDialog, ev *tcell.EventKey) bool { return a.userMenuKey(name, back, d, ev) }
 	return d
 }
 

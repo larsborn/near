@@ -59,7 +59,7 @@ func (a *App) saveMenus() error {
 
 // menusChanged saves the menus, rebinds menu keys and reopens the named
 // menu with the cursor on item index cursor.
-func (a *App) menusChanged(name string, cursor int) {
+func (a *App) menusChanged(name string, back func(), cursor int) {
 	if err := a.saveMenus(); err != nil {
 		a.setErr(err)
 	}
@@ -73,7 +73,7 @@ func (a *App) menusChanged(name string, cursor int) {
 	if m == nil {
 		return
 	}
-	d := a.openMenu(m)
+	d := a.openMenuLevel(m, back)
 	for i, it := range d.Items {
 		if idx, ok := it.Data.(int); ok && idx == cursor {
 			d.Cursor = i
@@ -82,7 +82,7 @@ func (a *App) menusChanged(name string, cursor int) {
 }
 
 // userMenuKey handles the editing keys of a menu list.
-func (a *App) userMenuKey(name string, d *ListDialog, ev *tcell.EventKey) bool {
+func (a *App) userMenuKey(name string, back func(), d *ListDialog, ev *tcell.EventKey) bool {
 	m := a.cfg.menu(name)
 	if m == nil {
 		return false
@@ -95,26 +95,26 @@ func (a *App) userMenuKey(name string, d *ListDialog, ev *tcell.EventKey) bool {
 	}
 	switch keyName(ev) {
 	case "Insert":
-		a.insertMenuItem(name, maxInt(idx, 0))
+		a.insertMenuItem(name, back, maxInt(idx, 0))
 	case "Delete":
 		if idx >= 0 {
-			a.deleteMenuItem(name, idx)
+			a.deleteMenuItem(name, back, idx)
 		}
 	case "F4":
 		if idx >= 0 {
-			a.editMenuItem(name, idx)
+			a.editMenuItem(name, back, idx)
 		}
 	case "Alt+F4":
-		a.editMenusFile(name)
+		a.editMenusFile(name, back)
 	case "Ctrl+Up":
 		if idx > 0 {
 			m.Items[idx], m.Items[idx-1] = m.Items[idx-1], m.Items[idx]
-			a.menusChanged(name, idx-1)
+			a.menusChanged(name, back, idx-1)
 		}
 	case "Ctrl+Down":
 		if idx >= 0 && idx < len(m.Items)-1 {
 			m.Items[idx], m.Items[idx+1] = m.Items[idx+1], m.Items[idx]
-			a.menusChanged(name, idx+1)
+			a.menusChanged(name, back, idx+1)
 		}
 	default:
 		return false
@@ -123,7 +123,7 @@ func (a *App) userMenuKey(name string, d *ListDialog, ev *tcell.EventKey) bool {
 }
 
 // insertMenuItem asks what to insert and puts it at position at.
-func (a *App) insertMenuItem(name string, at int) {
+func (a *App) insertMenuItem(name string, back func(), at int) {
 	a.confirm("User menu", []string{"Do you wish to insert a new command or a new menu?"},
 		[]string{"Insert command", "Insert menu"}, func(r int) {
 			if r < 0 {
@@ -140,7 +140,7 @@ func (a *App) insertMenuItem(name string, at int) {
 				}
 				at = clampInt(at, 0, len(m.Items))
 				m.Items = append(m.Items[:at], append([]MenuItem{it}, m.Items[at:]...)...)
-				a.menusChanged(name, at)
+				a.menusChanged(name, back, at)
 			})
 		})
 }
@@ -158,7 +158,7 @@ func (a *App) newSubmenu(title string) string {
 	return name
 }
 
-func (a *App) deleteMenuItem(name string, idx int) {
+func (a *App) deleteMenuItem(name string, back func(), idx int) {
 	m := a.cfg.menu(name)
 	if m == nil || idx >= len(m.Items) {
 		return
@@ -189,7 +189,7 @@ func (a *App) deleteMenuItem(name string, idx int) {
 				}
 			}
 		}
-		a.menusChanged(name, clampInt(idx, 0, left-1))
+		a.menusChanged(name, back, clampInt(idx, 0, left-1))
 	})
 }
 
@@ -205,7 +205,7 @@ func (a *App) menuReferenced(name string) bool {
 	return false
 }
 
-func (a *App) editMenuItem(name string, idx int) {
+func (a *App) editMenuItem(name string, back func(), idx int) {
 	m := a.cfg.menu(name)
 	if m == nil || idx >= len(m.Items) {
 		return
@@ -224,7 +224,7 @@ func (a *App) editMenuItem(name string, idx int) {
 			return
 		}
 		m.Items[idx] = edited
-		a.menusChanged(name, idx)
+		a.menusChanged(name, back, idx)
 	})
 }
 
@@ -250,7 +250,7 @@ func (a *App) renameSubmenu(old, title string) string {
 
 // editMenusFile opens menus.toml in the editor and reloads the menus when
 // the editor closes.
-func (a *App) editMenusFile(name string) {
+func (a *App) editMenusFile(name string, back func()) {
 	if err := a.saveMenus(); err != nil {
 		a.setErr(err)
 		return
@@ -267,7 +267,7 @@ func (a *App) editMenusFile(name string) {
 		a.cfg.Menus = menus
 		a.keymap = buildKeymap(a.cfg)
 		if again := a.cfg.menu(name); again != nil {
-			a.openMenu(again)
+			a.openMenuLevel(again, back)
 		}
 	})
 }

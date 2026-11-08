@@ -129,7 +129,8 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   them, each may have its own key, menus nest). Items run shell commands with
   placeholders for the current file, the selection and both directories.
   The arrows walk a menu like a folder tree: `Right` enters a submenu as
-  `Enter` does, `Left` and `Backspace` leave it as `Esc` does.
+  `Enter` does, and `Left`, `Backspace` and `Esc` step back out of it one
+  level at a time, closing the menu only at the top.
   Menus are edited in place like FAR's user menu: `Ins` inserts a command or
   a submenu, `Del` deletes, `F4` opens the "Edit user menu" dialog (hot key,
   label, command lines), `Alt+F4` edits the menu file, `Ctrl+Up`/`Ctrl+Down`

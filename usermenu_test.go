@@ -155,15 +155,63 @@ func TestMenuArrowsEnterAndLeaveSubmenus(t *testing.T) {
 	if !ok || sub.Title != "Tools" {
 		t.Fatalf("Right should have opened the Tools submenu, got %T %q", a.top(), sub.Title)
 	}
-	// Left leaves it, like Esc.
+	// Left goes back one level, like Esc, rather than closing the lot.
+	key(a, "Left")
+	if d, ok := a.top().(*ListDialog); !ok || d.Title != "Quick launch" {
+		t.Fatalf("Left should return to the parent menu, got %T", a.top())
+	}
+	// Backspace does the same.
+	d = a.top().(*ListDialog)
+	d.Cursor = len(d.Items) - 1
+	key(a, "Right")
+	key(a, "Backspace")
+	if d, ok := a.top().(*ListDialog); !ok || d.Title != "Quick launch" {
+		t.Fatalf("Backspace should return to the parent menu, got %T", a.top())
+	}
+	// At the top level Left closes the menu.
 	key(a, "Left")
 	if len(a.dialogs) != 0 {
-		t.Fatalf("Left should leave the menu, %d dialogs left", len(a.dialogs))
+		t.Fatalf("at the root the menu should close, %d dialogs left", len(a.dialogs))
 	}
+}
+
+// Esc steps out of a submenu one level at a time and only closes the menu
+// when it is already at the top.
+func TestMenuEscGoesBackOneLevel(t *testing.T) {
+	a, _ := testApp(t)
 	key(a, "F2")
-	key(a, "Backspace")
+	d, ok := a.top().(*ListDialog)
+	if !ok || d.Title != "Quick launch" {
+		t.Fatalf("F2 should open Quick launch, got %T", a.top())
+	}
+	d.Cursor = len(d.Items) - 1 // Tools...
+	key(a, "Enter")
+	if sub, ok := a.top().(*ListDialog); !ok || sub.Title != "Tools" {
+		t.Fatalf("expected the Tools submenu, got %T", a.top())
+	}
+	if !strings.Contains(screenText(a), "Esc: back") {
+		t.Fatalf("a submenu should say that Esc goes back:\n%s", screenText(a))
+	}
+	key(a, "Esc")
+	if d, ok := a.top().(*ListDialog); !ok || d.Title != "Quick launch" {
+		t.Fatalf("Esc should return to Quick launch, got %T", a.top())
+	}
+	key(a, "Esc")
 	if len(a.dialogs) != 0 {
-		t.Fatalf("Backspace should leave the menu, %d dialogs left", len(a.dialogs))
+		t.Fatalf("Esc at the top should close the menu, %d dialogs left", len(a.dialogs))
+	}
+	// An edit inside a submenu keeps the way back.
+	key(a, "F2")
+	d = a.top().(*ListDialog)
+	d.Cursor = len(d.Items) - 1
+	key(a, "Enter")
+	key(a, "Ctrl+Down") // move an item: the submenu is drawn again
+	if sub, ok := a.top().(*ListDialog); !ok || sub.Title != "Tools" {
+		t.Fatalf("after an edit the submenu should still be open, got %T", a.top())
+	}
+	key(a, "Esc")
+	if d, ok := a.top().(*ListDialog); !ok || d.Title != "Quick launch" {
+		t.Fatalf("the way back should survive an edit, got %T", a.top())
 	}
 }
 

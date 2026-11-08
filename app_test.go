@@ -487,7 +487,11 @@ func TestMenusAndPlaceholders(t *testing.T) {
 	if d2, ok := a.top().(*ListDialog); !ok || d2.Title != "Tools" {
 		t.Fatalf("submenu not opened: %T", a.top())
 	}
-	key(a, "Esc")
+	key(a, "Esc") // back to the parent menu
+	key(a, "Esc") // and out of it
+	if len(a.dialogs) != 0 {
+		t.Fatalf("two Escs should leave the menu, %d dialogs left", len(a.dialogs))
+	}
 	key(a, "F9")
 	if d3, ok := a.top().(*ListDialog); !ok || d3.Title != "Menus" {
 		t.Fatalf("menus list not opened")
