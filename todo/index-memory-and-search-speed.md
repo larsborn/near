@@ -1,114 +1,83 @@
 # Search index: memory footprint on very large trees
 
 ## What
-The Everything-like index (`search.go`) is `map[directory][]names` plus a flat search view
+The Everything-like index (`search.go`) is `map[directory]nameBlob` plus a flat search view
 (`flatindex.go`: one lowercased byte buffer and three int32 arrays). On the developer's
 machine it holds ~7.8 million names in ~847,000 directories.
 
-## Status (2026-11-10): the resident footprint is down from 2.9 GB to 1.2 GB
+## Status (2026-11-10): 2886 MB → 755 MB when searching, 16 MB when not
 
-Latency was never the problem: every query on that index takes 1.5–45 ms (flat buffer scan
-with `bytes.Index`, glob literals and directory narrowing for path terms, counting capped at
-10,000). Memory was, and most of it turned out to be collector slack and build transients
-rather than data.
+Latency was never the problem — every query is 1.5–45 ms. Memory was. Measured resident
+memory, always on a normal start that loads the real cache with `search_roots = ["*"]`:
 
-Measured by loading the real 272 MB cache in a test (`Index.LoadCache` plus the flat view,
-7,783,059 names in 846,592 directories):
+| | working set |
+| --- | --- |
+| at the start of this work | 2886 MB |
+| returning the peak, exact flat buffers | 1348 MB |
+| + `dirLow` byte buffer, `dirPos` binary search | 1026 MB |
+| + name blobs instead of `[]string` | **755 MB** |
+| a session that never opens the search dialog | **16 MB** |
 
-```
-after load + flat view   heapAlloc=1125 MB  heapInuse=1290 MB  heapSys=1607 MB
-after GC                 heapAlloc= 938 MB  heapInuse=1104 MB  heapSys=1607 MB
-map: key bytes 83 MB, name bytes 179 MB, 8.6 M string headers = 131 MB
-flat: names 186 MB, off 29 MB, dirIx 29 MB, nameIx 29 MB
-```
+Live heap 938 → 720 MB; cache file 285 → 273 MB; 167 → 102 bytes resident per name. What was
+done, each with its own decision file:
 
-So the live set is ~940 MB, but the process held 2.9 GB. Two causes, both now fixed:
+- `decisions/index-memory-is-returned-to-the-system.md` — the peaks were kept as collector
+  headroom and never returned. `releaseMemory` now frees and caps the headroom at a fixed
+  384 MB; `buildFlatIndex` sizes its buffers from the map instead of estimating.
+- `decisions/index-loads-on-first-search.md` — nothing is read until the search dialog is
+  opened, so a session that never searches pays 16 MB.
+- `decisions/index-names-are-blobs-not-string-slices.md` — `[]string` cost a 16-byte header
+  per name plus `append` slack; a blob costs 1 byte per name. Same for the 846,000 lowercased
+  directory strings and the directory→index map.
 
-- `buildFlatIndex` estimated the name buffer at `count*16` bytes — 124 MB for 187 MB of real
-  names — so `append` reallocated it to twice the size mid-build and the 124 MB copy became
-  garbage. It now measures the map first and allocates exactly (`TestFlatIndexAllocatesExactly`).
-- The collector kept 100 % headroom over a gigabyte of index and returned free pages only
-  lazily. `releaseMemory` (`memory.go`) now runs after the index settles (`EventIndexDone`)
-  and after each flat-view compaction: `debug.FreeOSMemory` plus a GOGC scaled to leave a
-  fixed 384 MB of slack instead of a multiple of the heap, so small indexes keep the default.
+Also worth knowing: about 200 MB of the old baseline was not NEAR's at all, see
+`todo/tcell-initial-size-is-the-scrollback-buffer.md`.
 
-Resident memory with the real cache, isolated `-config` copy, sampled every 5 s:
+## What is left
 
-| | before | after |
-| --- | --- | --- |
-| settled after load | 2694 MB | 1168 MB |
-| after a flat compaction (30 s) | 2886 MB | 1345 MB |
-| steady | 2886 MB | ~1240 MB |
-
-That is 1.3× the live heap, which is about the floor for this data in a GC'd runtime.
-
-## Where the memory actually goes (measured 2026-11-10)
-
-None of it is the file manager. Started with `search_roots = []` and no cache, NEAR sits at
-**17 MB working set / 24 MB private**. Everything above that is the name index, so the
-question is only ever "how much does a name cost" times "how many names are indexed".
-
-Per name, on the developer's index: **127 bytes of live heap, 167 bytes resident**. The map
-and the flat view each hold a full copy of every name — 179 MB of original bytes plus 186 MB
-lowercased — and on top of that every name carries a 16-byte string header and 12 bytes of
-`off`/`dirIx`/`nameIx`. That is ~75 of the 127 bytes; the rest is the per-directory
-structures (846 k keys at 83 MB, `dirLow` ~96 MB, `dirPos` ~40 MB, slice headers plus the
-capacity slack `append` leaves in 846 k `[]string` slices).
-
-How many names is the other half of the question. With the default `search_roots = ["*"]`
-(every fixed drive) and the default excludes (`.git`, `node_modules`, `__pycache__`,
-`.cache`) the index is 7.78 M names, and it is dominated by two subtrees:
+The 720 MB of live heap now breaks down roughly as:
 
 ```
-3395685 names  290905 dirs   C:/Users/born/Projects      (44 %, mostly build output)
-1156439 names  133460 dirs   C:/Users/born/AppData       (15 %)
- 155664 names   14225 dirs   C:/Users/born/Programs
- 135441 names   11413 dirs   D:/Backup/TjockBackup-pre2013/Projects
- 110774 names  110518 dirs   C:/Windows/WinSxS/Temp      (one name per directory)
+186 MB  flat.names         every name, lowercased
+186 MB  the blobs          every name, original case
+ 96 MB  map keys           846 k directory paths (83 MB of bytes + headers)
+ 93 MB  off/dirIx/nameIx   12 bytes per name
+ 86 MB  flat.lowBuf        the same paths again, lowercased
+ 42 MB  map bucket overhead
+ 13 MB  flat.dirs          headers sharing the map's key bytes
 ```
 
-So 59 % of the footprint is one developer's project tree and one application-data tree.
+So the remaining duplication is **every name stored twice** (372 MB) and **every directory
+path stored twice** (182 MB). Neither is removable without a design decision:
 
-## What is left — four directions, not yet chosen
+- **Names once (~186 MB).** The flat buffer must stay lowercased for the vectorised scan, so
+  the original case has to come from somewhere. Two candidates:
+  (a) a per-name case mask — for a 23-character ASCII name a 3-byte bitmask, or a varint list
+      of the few uppercase positions, with a side table for names where Unicode lowering is
+      not reversible; (b) resolve the real name from the filesystem for the ≤
+      `search_max_results` results actually displayed, which would also replace today's
+      verification against the map. (b) is simpler but breaks on case-sensitive filesystems
+      where `README` and `readme` can coexist in one directory.
+- **Paths once (~86 MB).** `flat.lowBuf` is the map's keys lowercased. It could be dropped and
+  computed per query — path terms already scan every directory — at the cost of 846 k
+  `ToLower` allocations per path query.
+- `nameIx` (31 MB) exists only to find a name in its blob for verification. If names were
+  stored once it would go too.
+- Intern directory strings so the map key and `flat.dirs` share one allocation (they already
+  share the bytes; this is only headers).
+- Suggest `AppData` in the generated Windows `search_exclude`: 1.16 M of the 7.8 M names are
+  there, and 3.4 M more are in one project tree full of build output.
 
-**A. Index fewer names (cheap, changes what is findable).** Add build-output directory names
-to the default `search_exclude` (`target`, `bin`, `obj`, `dist`, `build`, `.venv`, `.tox`,
-`vendor`, `.gradle`, `.next`) and `AppData`/`Library` per platform. On the measured index that
-is plausibly 2–3 M names, i.e. 300–500 MB. Risk: a user who searches for a built artefact no
-longer finds it, and the index silently differs from the filesystem. Needs a decision file.
-
-**B. Stop storing every name twice (the real engineering fix, ~300–400 MB).** The map's
-`[]string` duplicates what `flat.names` already holds. Make the flat view the only store:
-names in one buffer, original case either recovered from the lowercased bytes plus a case
-mask or kept in a second buffer, and `Index.dirs` reduced to `map[string]range`. Watcher
-updates and result verification both have to work off the arrays instead of the slices — that
-is the whole difficulty, since `apply` currently relies on cheap per-directory slice edits.
-Target ~60–70 bytes per name, i.e. ~550 MB for this index, and a smaller gob cache too.
-
-**C. Let the OS own the index (`mmap`, the most promising for a file manager).** The flat view
-is already a byte buffer and three int32 arrays — exactly what maps well. Memory-map the cache
-file instead of decoding a gob into the heap: resident memory becomes elastic, the kernel
-evicts it under pressure and pages it back for a query, and start-up stops costing a 285 MB
-decode. Cost: the watcher can no longer edit in place, so changes need an in-heap overlay plus
-a periodic rewrite of the file, and it is new platform code (`mmap` / `MapViewOfFile`).
-
-**D. Do not index by default.** `search_roots = ["*"]` is why an ordinary user pays a gigabyte
-for a feature they may never press `Ctrl+F` for. Alternatives: default to the home directory,
-or build the index on first use of the search dialog and say so. Supersedes
-`decisions/search-roots-all-fixed-drives.md`, so it needs its own decision file.
-
-Smaller follow-ups, independent of the above:
-
-- `flat.dirLow` is 846 k lowercased directory strings (~96 MB) used only by path terms; it
-  could be a byte buffer with offsets, or computed per query.
-- `flat.dirPos` (~40 MB) could be a binary search over the sorted `dirs[:built]` plus a small
-  map for directories added after the build.
-- Intern directory strings once (the map keys and `flat.dirs` duplicate the headers, not the
-  bytes).
-- The 846 k `[]string` slices carry `append`'s capacity slack; building them to exact length
-  from the cache would recover tens of megabytes.
+## How to measure
+`%LOCALAPPDATA%\Temp\nearrepro\` holds the harness used above (not in the repo):
+`memprobe.ps1 -Near <exe> -Roots 'search_roots = ["*"]' -OnStart true -WithCache` copies the
+real config and cache into a throwaway `-config` directory, starts NEAR in its own conhost
+window, samples the working set and kills it. `memverify.ps1` does a rebuild, keeps the cache
+and then measures the load path. For the live-heap breakdown, write a throwaway test that
+`LoadCache`s a real `index.gob`, waits for `flatBusy` to clear and logs `runtime.MemStats`
+plus the sizes above — and delete it again rather than making every `go test` run load 273 MB.
 
 ## Acceptance
-The slack half is done: 2.9 GB → 1.2 GB, figures above. What remains is a choice between A–D,
-which is a product decision as much as a technical one and should be put to the user rather
-than picked silently. Whichever is taken gets its own task file and decision record.
+Done for everything that does not need a new design decision. The two remaining items —
+storing names once and paths once — should be split into their own task when picked up, with
+the trade-offs above put to the user first.

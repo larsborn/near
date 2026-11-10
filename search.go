@@ -23,7 +23,7 @@ import (
 // names case-insensitively without allocating.
 type Index struct {
 	mu      sync.RWMutex
-	dirs    map[string][]string // directory -> entry names; every directory is a key
+	dirs    map[string]nameBlob // directory -> entry names; every directory is a key
 	count   int
 	builtAt time.Time
 	err     error
@@ -71,7 +71,7 @@ type EventIndexProgress struct{ tcell.EventTime }
 type EventIndexChanged struct{ tcell.EventTime }
 
 func newIndex() *Index {
-	return &Index{dirs: map[string][]string{}, newWatcher: newWatcher, maxWatch: 100000}
+	return &Index{dirs: map[string]nameBlob{}, newWatcher: newWatcher, maxWatch: 100000}
 }
 
 // Configure sets roots, excludes, cache location and watch settings.
@@ -219,7 +219,7 @@ func (ix *Index) Build() {
 	// the walk are then replayed by the next catch-up.
 	marks := journalPositions(roots)
 
-	dirs := map[string][]string{}
+	dirs := map[string]nameBlob{}
 	count := 0
 	var firstErr error
 	for _, root := range roots {
@@ -245,7 +245,7 @@ func (ix *Index) Build() {
 				dirs[p] = nil
 			}
 			parent := filepath.Dir(p)
-			dirs[parent] = append(dirs[parent], d.Name())
+			dirs[parent] = dirs[parent].add(d.Name())
 			count++
 			if count%2048 == 0 {
 				ix.progress.Store(int64(count))
@@ -256,6 +256,12 @@ func (ix *Index) Build() {
 		if err != nil && firstErr == nil {
 			firstErr = err
 		}
+	}
+	// The walk grew each directory's blob with append, which leaves spare
+	// capacity — on a whole-machine index that is a hundred megabytes of
+	// nothing. Hand it back before the map goes live.
+	for d, names := range dirs {
+		dirs[d] = names.compact()
 	}
 	ix.mu.Lock()
 	ix.dirs, ix.count, ix.err, ix.builtAt = dirs, count, firstErr, time.Now()
@@ -372,7 +378,7 @@ func (ix *Index) Close() {
 
 type indexCache struct {
 	BuiltAt  time.Time
-	Dirs     map[string][]string
+	Dirs     map[string]nameBlob
 	Count    int
 	Journals map[string]journalPos // change-journal positions the map is current to
 }
@@ -558,12 +564,14 @@ func (ix *Index) syncDirs(dirs []string) int {
 			// Only names that are new or gone make events; unchanged names
 			// are dropped again below.
 			have := map[string]bool{}
-			for _, n := range indexed {
+			indexed.each(func(_ int, nb []byte) bool {
+				n := string(nb)
 				have[n] = true
 				if !onDisk[n] {
 					batch = append(batch, fsEvent{fsRemove, filepath.Join(dir, n)})
 				}
-			}
+				return true
+			})
 			kept := batch[:0]
 			for _, ev := range batch {
 				if ev.Op == fsCreate && have[filepath.Base(ev.Path)] {
@@ -597,16 +605,19 @@ func underAnyRoot(p string, roots []string) bool {
 // matcher is one query term.
 type matcher struct {
 	s    string
-	path bool // contains a separator: matches the full path
-	glob bool // contains * ? [: glob against the base name
+	b    []byte // s again, so the scan does not convert it per candidate
+	path bool   // contains a separator: matches the full path
+	glob bool   // contains * ? [: glob against the base name
 }
 
 func parseTerms(query string) []matcher {
 	terms := strings.Fields(strings.ToLower(query))
 	ms := make([]matcher, 0, len(terms))
 	for _, t := range terms {
+		s := strings.ReplaceAll(t, `\`, `/`)
 		ms = append(ms, matcher{
-			s:    strings.ReplaceAll(t, `\`, `/`),
+			s:    s,
+			b:    []byte(s),
 			path: strings.ContainsAny(t, `/\`),
 			glob: strings.ContainsAny(t, "*?["),
 		})
@@ -636,50 +647,44 @@ func (ix *Index) Search(query string, max int) (out []string, total int, capped 
 	}
 	var buf []byte
 	for dir, names := range ix.dirs {
-		for _, name := range names {
+		if capped {
+			break
+		}
+		names.each(func(_ int, nb []byte) bool {
 			if needPath {
 				buf = append(buf[:0], dir...)
 				buf = append(buf, '/')
-				buf = append(buf, name...)
+				buf = append(buf, nb...)
 			}
-			ok := true
 			for _, m := range ms {
 				switch {
 				case m.glob:
-					n := name
-					if hasUpper(n) {
-						n = strings.ToLower(n)
-					}
-					if matched, _ := filepath.Match(m.s, n); !matched {
-						ok = false
+					if matched, _ := filepath.Match(m.s, lowerASCII(string(nb))); !matched {
+						return true
 					}
 				case m.path:
 					if !containsFold(buf, m.s) {
-						ok = false
+						return true
 					}
 				default:
-					if !containsFold(name, m.s) {
-						ok = false
+					if !containsFold(nb, m.s) {
+						return true
 					}
 				}
-				if !ok {
-					break
-				}
 			}
-			if ok {
-				total++
-				if len(out) < max {
-					out = append(out, filepath.Join(dir, name))
-				}
-				if total >= searchCountCap {
-					sort.Strings(out)
-					return out, total, true
-				}
+			total++
+			if len(out) < max {
+				out = append(out, filepath.Join(dir, string(nb)))
 			}
-		}
+			if total >= searchCountCap {
+				capped = true
+				return false
+			}
+			return true
+		})
 	}
 	sort.Strings(out)
-	return out, total, false
+	return out, total, capped
 }
 
 // containsFold reports whether s contains the lowercase term, ignoring
@@ -906,7 +911,7 @@ func (ix *Index) apply(batch []fsEvent) {
 		for d, names := range ix.dirs {
 			for _, pre := range prefixes {
 				if strings.HasPrefix(d, pre) || d == pre[:len(pre)-1] {
-					ix.count -= len(names)
+					ix.count -= names.count()
 					delete(ix.dirs, d)
 					break
 				}
@@ -964,17 +969,13 @@ func (ix *Index) currentWatcher() fsWatcher {
 func (ix *Index) removeNameLocked(p string) (isDir bool, moved *flatAdd) {
 	parent, name := filepath.Dir(p), filepath.Base(p)
 	if names, ok := ix.dirs[parent]; ok {
-		for i, n := range names {
-			if n == name {
-				last := len(names) - 1
-				if i != last {
-					names[i] = names[last]
-					moved = &flatAdd{dir: parent, name: names[i], nameIx: int32(i)}
-				}
-				ix.dirs[parent] = names[:last]
-				ix.count--
-				break
+		if i := names.indexOf(name); i >= 0 {
+			out, movedTo, movedName := names.removeAt(i)
+			if movedTo >= 0 {
+				moved = &flatAdd{dir: parent, name: string(movedName), nameIx: int32(movedTo)}
 			}
+			ix.dirs[parent] = out
+			ix.count--
 		}
 	}
 	_, isDir = ix.dirs[p]
@@ -985,14 +986,14 @@ func (ix *Index) removeNameLocked(p string) (isDir bool, moved *flatAdd) {
 // append, or false if it was already there.
 func (ix *Index) addNameLocked(p string) (flatAdd, bool) {
 	parent, name := filepath.Dir(p), filepath.Base(p)
-	for _, n := range ix.dirs[parent] {
-		if n == name {
-			return flatAdd{}, false
-		}
+	names := ix.dirs[parent]
+	if names.indexOf(name) >= 0 {
+		return flatAdd{}, false
 	}
-	ix.dirs[parent] = append(ix.dirs[parent], name)
+	ni := names.count()
+	ix.dirs[parent] = names.add(name)
 	ix.count++
-	return flatAdd{dir: parent, name: name, nameIx: int32(len(ix.dirs[parent]) - 1)}, true
+	return flatAdd{dir: parent, name: name, nameIx: int32(ni)}, true
 }
 
 // addTreeLocked indexes a new directory and everything below it, returning

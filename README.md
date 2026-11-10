@@ -364,14 +364,14 @@ few tens of milliseconds. Counting stops at 10,000 matches ("10,000+"), so
 even one-letter queries return at once.
 
 The index is the only large thing NEAR keeps, and it is not small: about
-1.2 GB for 7.8 million names across two drives, against 17 MB for the file
-manager itself. So it is loaded the first time the search dialog is
-opened, not at start-up — a session that never searches never pays for it,
-and the first search on a large index waits a second or two while the dialog
-says what it is doing. `search_index_on_start = true` goes back to loading it
-eagerly. Once the index has settled NEAR hands the peak back to the system
-and keeps the collector on a short leash, so the figure stays near what the
-index actually needs.
+750 MB for 7.8 million names across two drives — roughly 100 bytes a name —
+against 17 MB for the file manager itself. So it is loaded the first time the
+search dialog is opened, not at start-up: a session that never searches never
+pays for it, and the first search on a large index waits a second or two
+while the dialog says what it is doing. `search_index_on_start = true` goes
+back to loading it eagerly. Once the index has settled NEAR hands the peak
+back to the system and keeps the collector on a short leash, so the figure
+stays near what the index actually needs.
 
 Index less with `search_roots` and `search_exclude` if that is still too
 much; `search_roots = []` leaves the index empty, and the search dialog then

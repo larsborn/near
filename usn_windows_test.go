@@ -57,7 +57,7 @@ func TestJournalCatchUp(t *testing.T) {
 	var got []string
 	ix.mu.RLock()
 	for d, names := range ix.dirs {
-		for _, n := range names {
+		for _, n := range names.strings() {
 			rel, _ := filepath.Rel(root, filepath.Join(d, n))
 			got = append(got, filepath.ToSlash(rel))
 		}

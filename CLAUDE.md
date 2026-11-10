@@ -179,8 +179,14 @@ Both paths pass the command line through `shellScript`, which prefixes `. <shell
 built-in `Editor` dialog calls `done` from its close callback, the external editor blocks, so
 callers (mass rename's F4 flow) must not assume synchronous completion.
 
-**Search index** (`search.go`, `watch*.go`). `Index.dirs` is `map[directory][]names` (every
-directory is a key), chosen so watcher events are cheap to apply. Nothing is read at start-up
+**Search index** (`search.go`, `watch*.go`). `Index.dirs` is `map[directory]nameBlob` (every
+directory is a key), chosen so watcher events are cheap to apply. A `nameBlob` (`nameblob.go`)
+is the directory's names in one byte run, each length-prefixed with a varint — a `[]string`
+cost 16 bytes of header per name, a blob costs 1. Names are addressed by ordinal, which is
+what the flat view's `nameIx` records, and `removeAt` swaps the last name into the hole so the
+other ordinals stay valid (`decisions/index-names-are-blobs-not-string-slices.md`). `at`/`each`
+alias the blob, so copy before keeping. Changing this invalidated the cache format, which
+`LoadCache` refuses so the index is rebuilt. Nothing is read at start-up
 unless `search_index_on_start`: `App.ensureIndex` (idempotent via `App.indexStarted`) loads the
 cache, starts the watcher and catches up when `showSearch` first runs, in a goroutine, with
 `Index.Loading` driving a dialog line (`decisions/index-loads-on-first-search.md`). Build walks `search_roots`
@@ -198,15 +204,19 @@ strips names, so changed *parent directories* are resolved by file id and reconc
 `syncDirs` through `apply`) instead of rebuilding; any unusable journal → `RebuildAsync`.
 Searching goes through `flatIndex` (`flatindex.go`): all names lowercased in one byte buffer
 scanned with `bytes.Index`, plus parallel `off/dirIx/nameIx` arrays; the map stays the source of
-truth (results are verified against it, so stale entries are skipped). The view is built after
+truth (results are verified against it, so stale entries are skipped). Directories live there as
+`dirs` plus one `lowBuf`/`lowOff` byte buffer of their lowercased forms, and `dirIndex` binary
+searches the sorted `dirs[:dirsBuilt]` rather than keeping a map of all 846 k of them. The view is built after
 `Build`/`LoadCache`, appended to in `apply` (map removals swap the last name into the hole and
 re-append it), and compacted by a rebuild `flatCompactAfter` after the last change. Counting
 stops at `searchCountCap`. On the developer's 5M-name index every query is < 50 ms.
 The index is also the whole memory footprint: `buildFlatIndex` measures the map and allocates
 its buffers exactly (an estimate made `append` copy a 190 MB buffer), and `releaseMemory`
-(`memory.go`) runs after `EventIndexDone` and after each compaction to call
-`debug.FreeOSMemory` and scale GOGC to a fixed 384 MB of headroom — 2.9 GB resident became
-1.2 GB (`decisions/index-memory-is-returned-to-the-system.md`).
+(`memory.go`) runs after start-up, after `EventIndexDone` and after each compaction to call
+`debug.FreeOSMemory` and scale GOGC to a fixed 384 MB of headroom
+(`decisions/index-memory-is-returned-to-the-system.md`). Together with the blobs and the lazy
+load, 2886 MB resident became 755 MB when searching and 16 MB when not; `todo/index-memory-and-search-speed.md`
+has the breakdown of what is left and how to measure it.
 
 **Editor** (`editor.go`): lines as `[][]rune`; every mutation goes through `edit(r1,c1,r2,c2,ins)`
 which returns an `editRec`; undo/redo replay those records, consecutive typing is merged.

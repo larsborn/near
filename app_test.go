@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/gob"
 	"os"
 	"path/filepath"
 	"strings"
@@ -915,6 +916,38 @@ func TestIndexCacheRoundTrip(t *testing.T) {
 	}
 	if res, _, _ := other.Search("deep", 10); len(res) != 1 {
 		t.Fatalf("search after cache load: %v", res)
+	}
+}
+
+// Names used to be stored as []string per directory and are now one blob,
+// so a cache written by an older NEAR must be refused outright: the caller
+// then rebuilds instead of reading it as nonsense.
+func TestOldFormatCacheIsRejected(t *testing.T) {
+	a, _ := testApp(t)
+	a.index.Configure(a.cfg, nil)
+	type oldCache struct {
+		BuiltAt  time.Time
+		Dirs     map[string][]string
+		Count    int
+		Journals map[string]journalPos
+	}
+	f, err := os.Create(a.index.cacheFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := oldCache{BuiltAt: time.Now(), Count: 1, Dirs: map[string][]string{"/a": {"b.txt"}}}
+	if err := gob.NewEncoder(f).Encode(old); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	ix := newIndex()
+	ix.Configure(a.cfg, nil)
+	if err := ix.LoadCache(); err == nil {
+		t.Fatal("a cache in the old format was accepted")
+	}
+	if ix.Count() != 0 {
+		t.Fatalf("the rejected cache left %d names behind", ix.Count())
 	}
 }
 

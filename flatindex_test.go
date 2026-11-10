@@ -40,12 +40,12 @@ func TestFlatIndexMatchesMapScan(t *testing.T) {
 }
 
 func TestFlatIndexCapAndStaleEntries(t *testing.T) {
-	dirs := map[string][]string{}
+	dirs := map[string]nameBlob{}
 	n := 0
 	for d := 0; d < 30; d++ {
 		dir := filepath.Join("/root", fmt.Sprintf("d%02d", d))
 		for i := 0; i < 500; i++ {
-			dirs[dir] = append(dirs[dir], fmt.Sprintf("File%d.txt", i))
+			dirs[dir] = dirs[dir].add(fmt.Sprintf("File%d.txt", i))
 			n++
 		}
 	}

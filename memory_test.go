@@ -29,11 +29,11 @@ func TestGCPercentForHeapSize(t *testing.T) {
 // building one must not make append grow (and copy) them: on a real index
 // that costs hundreds of megabytes of transient memory.
 func TestFlatIndexAllocatesExactly(t *testing.T) {
-	dirs := map[string][]string{}
+	dirs := map[string]nameBlob{}
 	for d := 0; d < 40; d++ {
 		dir := filepath.Join("/root", fmt.Sprintf("d%02d", d))
 		for i := 0; i < 200; i++ {
-			dirs[dir] = append(dirs[dir], fmt.Sprintf("Datei%d-ÄÖÜ.txt", i))
+			dirs[dir] = dirs[dir].add(fmt.Sprintf("Datei%d-ÄÖÜ.txt", i))
 		}
 	}
 	f := buildFlatIndex(dirs)
@@ -45,5 +45,8 @@ func TestFlatIndexAllocatesExactly(t *testing.T) {
 	// append doubled the buffer.
 	if cap(f.names) > len(f.names)+len(f.names)/32+64 {
 		t.Errorf("name buffer regrew: len=%d cap=%d", len(f.names), cap(f.names))
+	}
+	if cap(f.lowBuf) > len(f.lowBuf)+len(f.lowBuf)/32+64 {
+		t.Errorf("directory buffer regrew: len=%d cap=%d", len(f.lowBuf), cap(f.lowBuf))
 	}
 }
