@@ -361,7 +361,17 @@ rather than a rescan. Searching uses a compact view of all names in one
 lowercased buffer, scanned with the vectorised substring search of the Go
 runtime: on a five-million-name index a query takes a few milliseconds to a
 few tens of milliseconds. Counting stops at 10,000 matches ("10,000+"), so
-even one-letter queries return at once. Changes arrive through a watcher:
+even one-letter queries return at once.
+
+The index is the only large thing NEAR keeps: about 1.2 GB of memory for
+7.8 million names across two drives, roughly 150 bytes per name. Once it has
+settled NEAR hands the build's peak back to the system and keeps the
+collector on a short leash, so the figure stays near what the index actually
+needs. Index less with `search_roots` and `search_exclude` if that is too
+much; `search_roots = []` leaves the index empty, and the search dialog then
+says so and points at the setting.
+
+Changes arrive through a watcher:
 
 | Platform   | Mechanism                                     | Scope                                                      |
 | ---------- | --------------------------------------------- | ---------------------------------------------------------- |

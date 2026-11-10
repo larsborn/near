@@ -37,21 +37,35 @@ type flatAdd struct {
 const searchCountCap = 10000
 
 // buildFlatIndex makes the flat view from the directory map.
-func buildFlatIndex(dirs map[string][]string, count int) *flatIndex {
+//
+// The sizes are measured first rather than estimated: on a large index the
+// name buffer is hundreds of megabytes, and letting append grow it would
+// copy it to a buffer of twice the size — a transient of several hundred
+// megabytes that the process keeps. One pass over the map costs far less.
+func buildFlatIndex(dirs map[string][]string) *flatIndex {
 	keys := make([]string, 0, len(dirs))
-	for d := range dirs {
+	total, nameBytes := 0, 0
+	for d, names := range dirs {
 		keys = append(keys, d)
+		total += len(names)
+		for _, n := range names {
+			nameBytes += len(n)
+		}
 	}
 	sort.Strings(keys)
+	// One '\n' before the first name and one after every name. Lowercasing
+	// can lengthen a name in rare non-ASCII cases, hence the small margin.
+	nameCap := nameBytes + total + 1
+	nameCap += nameCap / 64
 	f := &flatIndex{
 		dirs:    keys,
 		dirLow:  make([]string, len(keys)),
 		dirPos:  make(map[string]int32, len(keys)),
 		dirFrom: make([]int32, len(keys)+1),
-		off:     make([]int32, 0, count+1),
-		dirIx:   make([]int32, 0, count),
-		nameIx:  make([]int32, 0, count),
-		names:   make([]byte, 0, count*16),
+		off:     make([]int32, 0, total+1),
+		dirIx:   make([]int32, 0, total),
+		nameIx:  make([]int32, 0, total),
+		names:   make([]byte, 0, nameCap),
 	}
 	f.names = append(f.names, '\n')
 	for di, d := range keys {

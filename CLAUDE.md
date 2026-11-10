@@ -199,6 +199,11 @@ truth (results are verified against it, so stale entries are skipped). The view 
 `Build`/`LoadCache`, appended to in `apply` (map removals swap the last name into the hole and
 re-append it), and compacted by a rebuild `flatCompactAfter` after the last change. Counting
 stops at `searchCountCap`. On the developer's 5M-name index every query is < 50 ms.
+The index is also the whole memory footprint: `buildFlatIndex` measures the map and allocates
+its buffers exactly (an estimate made `append` copy a 190 MB buffer), and `releaseMemory`
+(`memory.go`) runs after `EventIndexDone` and after each compaction to call
+`debug.FreeOSMemory` and scale GOGC to a fixed 384 MB of headroom — 2.9 GB resident became
+1.2 GB (`decisions/index-memory-is-returned-to-the-system.md`).
 
 **Editor** (`editor.go`): lines as `[][]rune`; every mutation goes through `edit(r1,c1,r2,c2,ins)`
 which returns an `editRec`; undo/redo replay those records, consecutive typing is merged.

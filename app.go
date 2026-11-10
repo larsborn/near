@@ -299,6 +299,7 @@ func (a *App) handleEvent(ev tcell.Event) {
 		if err := a.index.Err(); err != nil {
 			a.setErr(fmt.Errorf("search index: %v", err))
 		}
+		releaseMemory() // give the build's peak back to the system
 	case *EventIndexChanged, *EventIndexProgress:
 		// The index was updated by the watcher or is being built; redraw picks it up.
 	case *EventInterrupt:

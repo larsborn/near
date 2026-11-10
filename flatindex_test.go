@@ -49,7 +49,7 @@ func TestFlatIndexCapAndStaleEntries(t *testing.T) {
 			n++
 		}
 	}
-	f := buildFlatIndex(dirs, n)
+	f := buildFlatIndex(dirs)
 	if f.count != n {
 		t.Fatalf("count = %d, want %d", f.count, n)
 	}

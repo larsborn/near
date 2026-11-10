@@ -273,7 +273,7 @@ func (ix *Index) rebuildFlat() {
 	ix.mu.Unlock()
 	for {
 		ix.mu.RLock()
-		f := buildFlatIndex(ix.dirs, ix.count)
+		f := buildFlatIndex(ix.dirs)
 		ix.mu.RUnlock()
 		ix.mu.Lock()
 		ix.flat = f
@@ -308,6 +308,9 @@ func (ix *Index) scheduleFlat() {
 		ix.flatCompact = false
 		ix.mu.Unlock()
 		ix.rebuildFlat()
+		// The old view stayed live while the new one was built; give that
+		// back instead of carrying it until the next collection.
+		releaseMemory()
 	}()
 }
 
