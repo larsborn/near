@@ -66,8 +66,9 @@ type Config struct {
 	Menus               []Menu              `toml:"menus"`
 	Bookmarks           []Bookmark          `toml:"bookmarks"`
 
-	dir  string // directory holding config, state and index cache
-	path string
+	dir     string // directory holding config, state and index cache
+	path    string
+	reindex bool // -reindex: rebuild the search index at start-up
 }
 
 func configDir(override string) string {
@@ -317,15 +318,23 @@ network_cache_minutes = 60
 # for every fixed drive (network, removable and subst drives are left out);
 # any other entry is a directory, e.g. ["~", "D:\\", "/srv/data"]. In search_exclude a
 # plain name skips every directory of that name; an entry with a path
-# separator skips that exact directory. On start (see search_index_on_start)
-# the index catches up from the NTFS change journal of each volume, without
-# administrator rights; it is rebuilt from scratch only when a journal cannot
-# be used (recreated, wrapped after a long absence, disabled, non-NTFS, or on
-# Linux and macOS). Ctrl+R in the search dialog always rebuilds.
+# separator skips that exact directory.
 search_roots = ["*"]
 search_exclude = [".git", "node_modules", "__pycache__", ".cache", "/proc", "/sys", "/dev", "/run"]
 search_max_results = 500
-search_index_on_start = true
+
+# The index is all of NEAR's memory: a whole-machine index of eight million
+# names costs about a gigabyte, where the file manager alone is under 20 MB.
+# So nothing is loaded until the search dialog is opened for the first time,
+# and a session that never searches never pays for it. Set this to true to
+# load it at start-up instead, for a search that answers instantly.
+#
+# Whenever the index does come up it catches up from the NTFS change journal
+# of each volume, without administrator rights; it is rebuilt from scratch
+# only when a journal cannot be used (recreated, wrapped after a long
+# absence, disabled, non-NTFS, or on Linux and macOS). Ctrl+R in the search
+# dialog always rebuilds, and so does starting NEAR with -reindex.
+search_index_on_start = false
 # Keep the index current by watching the roots for changes. Windows watches
 # whole trees with one handle per root; Linux and macOS need one watch per
 # directory, so the number is capped (raise fs.inotify.max_user_watches on

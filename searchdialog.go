@@ -42,7 +42,8 @@ type EventSearchResult struct {
 
 func (a *App) showSearch() {
 	d := &SearchDialog{edit: newLineEdit("")}
-	if a.index.Count() == 0 && !a.index.Building() {
+	a.ensureIndex() // the index is only loaded once something wants it
+	if a.index.Count() == 0 && !a.index.Building() && !a.index.Loading() {
 		a.rebuildIndex()
 	}
 	a.push(d)
@@ -327,6 +328,8 @@ func (d *SearchDialog) stateLines(a *App) []string {
 	ix := a.index
 	fix := []string{"", "Check search_roots in", "  " + a.cfg.path, "and press Ctrl+R to rebuild the index."}
 	switch {
+	case ix.Loading():
+		return []string{"Loading the index of " + rootsLabel(ix.Roots()) + "…", "", "Results appear in a moment."}
 	case ix.Building():
 		lines := []string{"Building the index of " + rootsLabel(ix.Roots()) + "…", groupDigits(ix.progress.Load()) + " names so far"}
 		if dir := ix.Walking(); dir != "" {

@@ -180,7 +180,10 @@ built-in `Editor` dialog calls `done` from its close callback, the external edit
 callers (mass rename's F4 flow) must not assume synchronous completion.
 
 **Search index** (`search.go`, `watch*.go`). `Index.dirs` is `map[directory][]names` (every
-directory is a key), chosen so watcher events are cheap to apply. Build walks `search_roots`
+directory is a key), chosen so watcher events are cheap to apply. Nothing is read at start-up
+unless `search_index_on_start`: `App.ensureIndex` (idempotent via `App.indexStarted`) loads the
+cache, starts the watcher and catches up when `showSearch` first runs, in a goroutine, with
+`Index.Loading` driving a dialog line (`decisions/index-loads-on-first-search.md`). Build walks `search_roots`
 in a goroutine (`expandRoots`: `"*"` = every fixed drive from the platform `fixedDrives` in
 `drives_*.go`, nested roots dropped); results are announced by posting `EventIndexDone`/`EventIndexChanged` to the
 tcell screen (the loop only redraws). Watch backends implement `fsWatcher`: `watch_windows.go`

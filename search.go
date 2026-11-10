@@ -29,6 +29,7 @@ type Index struct {
 	err     error
 
 	building atomic.Bool
+	loading  atomic.Bool // the cache is being read into memory
 	progress atomic.Int64
 	catching atomic.Bool           // a change-journal catch-up is running
 	journals map[string]journalPos // where the index stands per volume ("C:")
@@ -100,6 +101,10 @@ func (ix *Index) BuiltAt() time.Time {
 }
 
 func (ix *Index) Building() bool { return ix.building.Load() }
+
+// Loading reports that the cache is being read, which on a large index
+// takes a moment the search dialog has to explain.
+func (ix *Index) Loading() bool { return ix.loading.Load() }
 
 // Roots returns the directories the index covers.
 func (ix *Index) Roots() []string {

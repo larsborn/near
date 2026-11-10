@@ -4,14 +4,21 @@ Date: 2026-11-10
 Status: accepted
 
 ## Decision
-Once the search index has settled, NEAR returns its free memory to the operating system and
+After start-up, and once the search index has settled, NEAR returns its free memory to the
+operating system and
 tightens the garbage collector's headroom to a fixed amount rather than a multiple of the
 heap. `releaseMemory` (`memory.go`) calls `debug.FreeOSMemory` and then
 `debug.SetGCPercent(gcPercentFor(live))`, which leaves `gcHeadroom` = 384 MB of slack over
 the live heap, clamped to the Go default of 100 % for small heaps and to 25 % for very large
-ones. It runs at the two points where the peak has just passed: the `*EventIndexDone` case in
-`App.handleEvent` (reached by a build, a rebuild and the USN catch-up alike) and after each
-flat-view compaction in `Index.scheduleFlat`.
+ones. It runs at the three points where a peak has just passed: after `app.setup` in `main`,
+the `*EventIndexDone` case in `App.handleEvent` (reached by a build, a rebuild and the USN
+catch-up alike), and after each flat-view compaction in `Index.scheduleFlat`.
+
+The start-up call is there because of tcell, not the index: on Windows it sizes its first cell
+buffer to the console's scrollback rather than its window and throws away about 200 MB
+(`todo/tcell-initial-size-is-the-scrollback-buffer.md`). An idle file manager never allocates
+enough to trigger another collection, so without this NEAR sat at 225–312 MB with no index at
+all; with it, 17 MB.
 
 The flat view is also sized exactly instead of estimated: `buildFlatIndex` measures the map
 before filling the buffers, so `append` never reallocates them.

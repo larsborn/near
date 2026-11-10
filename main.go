@@ -45,9 +45,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "NEAR:", err)
 		os.Exit(1)
 	}
-	if *reindex {
-		cfg.SearchIndexOnStart = true
-	}
+	cfg.reindex = *reindex
 	ensureConsole() // started from a GUI launcher without a console: get one
 	screen, err := tcell.NewScreen()
 	if err != nil {
@@ -79,6 +77,7 @@ func main() {
 		}
 	}
 	app.setup(left, right)
+	releaseMemory() // hand back what starting up threw away, see memory.go
 	app.startIndex()
 	app.run()
 	screen.Fini()

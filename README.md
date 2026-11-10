@@ -351,7 +351,7 @@ work on the command line.
 search_roots = ["*"]           # "*" = every fixed drive; or directories such as ["~", "/srv/data"]
 search_exclude = [".git", "node_modules", "/proc", "/sys"]  # name anywhere, or an exact path
 search_max_results = 500
-search_index_on_start = true
+search_index_on_start = false  # true: load it at start-up instead of on the first search
 search_watch = true            # keep the index current while near runs
 search_watch_max_dirs = 100000 # cap for per-directory watches (Linux, macOS)
 ```
@@ -363,11 +363,17 @@ runtime: on a five-million-name index a query takes a few milliseconds to a
 few tens of milliseconds. Counting stops at 10,000 matches ("10,000+"), so
 even one-letter queries return at once.
 
-The index is the only large thing NEAR keeps: about 1.2 GB of memory for
-7.8 million names across two drives, roughly 150 bytes per name. Once it has
-settled NEAR hands the build's peak back to the system and keeps the
-collector on a short leash, so the figure stays near what the index actually
-needs. Index less with `search_roots` and `search_exclude` if that is too
+The index is the only large thing NEAR keeps, and it is not small: about
+1.2 GB for 7.8 million names across two drives, against 17 MB for the file
+manager itself. So it is loaded the first time the search dialog is
+opened, not at start-up — a session that never searches never pays for it,
+and the first search on a large index waits a second or two while the dialog
+says what it is doing. `search_index_on_start = true` goes back to loading it
+eagerly. Once the index has settled NEAR hands the peak back to the system
+and keeps the collector on a short leash, so the figure stays near what the
+index actually needs.
+
+Index less with `search_roots` and `search_exclude` if that is still too
 much; `search_roots = []` leaves the index empty, and the search dialog then
 says so and points at the setting.
 

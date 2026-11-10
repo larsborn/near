@@ -5,19 +5,28 @@ import (
 	"runtime/debug"
 )
 
-// The search index is the only large thing NEAR holds: roughly a gigabyte
-// for eight million names on every fixed drive. Two things used to turn
-// that into nearly three gigabytes of process memory. The collector keeps
-// as much again as headroom before it runs, and it hands free pages back to
-// the system only slowly, so the peak of a build, a cache load or a flat
-// view compaction stayed charged to the process long after it was over.
+// NEAR allocates very little to run — a megabyte of live heap with no
+// index — but it passes through two large peaks that the runtime then sits
+// on, because free pages go back to the system only slowly and an idle file
+// manager never allocates enough to trigger another collection.
 //
-// releaseMemory is called once the index has settled. It returns what is
-// free straight away, then sets the collector's headroom to a fixed amount
-// of memory rather than a multiple of the heap: a large index no longer
-// reserves a second copy of itself, while a small one keeps the default
-// behaviour, so copying and directory walking do not start collecting
-// every few megabytes.
+// The first peak is start-up, and it is not NEAR's: on Windows tcell takes
+// its initial size from the console's *screen buffer* rather than its
+// window (`winTty.NewDevTty` reads dwSize), so with cmd's default 9001-line
+// scrollback `tScreen.Init` sizes a 120x9001 cell buffer — about 200 MB —
+// and throws it away when the first resize event reports the real 120x30.
+// See todo/tcell-initial-size-is-the-scrollback-buffer.md.
+//
+// The second is the search index: roughly a gigabyte for eight million
+// names on every fixed drive, where loading, building or compacting the
+// flat view briefly needs a good deal more.
+//
+// releaseMemory is called once after start-up and whenever the index has
+// settled. It returns what is free straight away, then sets the collector's
+// headroom to a fixed amount of memory rather than a multiple of the heap:
+// a large index no longer reserves a second copy of itself, while a small
+// one keeps the default behaviour, so copying and directory walking do not
+// start collecting every few megabytes.
 func releaseMemory() {
 	debug.FreeOSMemory() // collects, so HeapAlloc below is the live set
 	var m runtime.MemStats

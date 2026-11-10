@@ -23,3 +23,6 @@ box that is 7.7 million names, 283 MB of cache and about 3 GB of memory
 
 ## Where
 `drives_*.go` fixedDrives, `search.go` expandRoots and outerRoots, config comment, README.
+
+See also `index-loads-on-first-search.md`: the roots are still every fixed drive, but since
+2026-11-10 that memory is only spent once the search dialog is opened.

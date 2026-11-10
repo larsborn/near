@@ -73,6 +73,7 @@ type App struct {
 	dirs             *dirCache       // directory listings of network drives
 	cmdStdin         io.WriteCloser  // stdin of the running console command
 	cmdFed           bool            // it has been given input, so Enter keeps feeding it
+	indexStarted     bool            // the search index has been asked for, so it is coming up
 	lastClick        time.Time
 	lastClickAt      [2]int
 	lastButtons      tcell.ButtonMask
@@ -240,31 +241,55 @@ func (a *App) saveSession() {
 	_ = saveState(a.cfg.dir, st)
 }
 
+// startIndex settles what happens to the search index at start-up. The
+// index is the whole of NEAR's memory footprint — a gigabyte for a
+// whole-machine index against 17 MB for the file manager itself — so by
+// default nothing is loaded until something asks for it (`ensureIndex`
+// from the search dialog). `search_index_on_start` buys an instant first
+// search with that memory; `-reindex` rebuilds regardless.
 func (a *App) startIndex() {
 	a.index.Configure(a.cfg, a.screen)
-	ix := a.index
-	if err := ix.LoadCache(); err == nil {
-		if a.cfg.SearchWatch {
-			ix.StartWatch()
-		}
-		if !a.cfg.SearchIndexOnStart {
-			return
-		}
-		// Catch up from the change journals where possible; a full rebuild
-		// only when a volume's journal cannot be used.
-		go func() {
-			if _, err := ix.CatchUp(); err != nil {
-				ix.RebuildAsync()
-				return
-			}
-			_ = ix.saveCache()
-			ix.post(&EventIndexDone{})
-		}()
+	switch {
+	case a.cfg.reindex:
+		a.indexStarted = true
+		a.index.RebuildAsync()
+	case a.cfg.SearchIndexOnStart:
+		a.ensureIndex()
+	}
+}
+
+// ensureIndex brings the index up the first time it is needed: the cache is
+// read, the watcher started and the change journals caught up, or the index
+// is built when there is no usable cache. Reading a large cache takes a
+// moment, so it all happens in the background and the search dialog reports
+// where it stands. Calling it again does nothing.
+func (a *App) ensureIndex() {
+	if a.indexStarted {
 		return
 	}
-	if a.cfg.SearchIndexOnStart {
-		ix.RebuildAsync()
-	}
+	a.indexStarted = true
+	ix, watch := a.index, a.cfg.SearchWatch
+	ix.loading.Store(true)
+	go func() {
+		err := ix.LoadCache()
+		ix.loading.Store(false)
+		if err != nil {
+			ix.RebuildAsync() // posts EventIndexDone itself
+			return
+		}
+		if watch {
+			ix.StartWatch()
+		}
+		ix.post(&EventIndexChanged{}) // the loaded names are searchable now
+		// Catch up from the change journals where possible; a full rebuild
+		// only when a volume's journal cannot be used.
+		if _, err := ix.CatchUp(); err != nil {
+			ix.RebuildAsync()
+			return
+		}
+		_ = ix.saveCache()
+		ix.post(&EventIndexDone{})
+	}()
 }
 
 func (a *App) rebuildIndex() {
