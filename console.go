@@ -62,6 +62,17 @@ func (c *Console) Println(text string, st tcell.Style) {
 	c.trimLocked()
 }
 
+// Echo adds text to the line being written rather than starting a new
+// one, the way a terminal shows an answer after the question that asked
+// for it. The line stays unfinished, so the program is still seen to be
+// waiting while it prints the next question.
+func (c *Console) Echo(text string, st tcell.Style) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.partial = append(c.partial, conSeg{text, st})
+	c.scroll = 0
+}
+
 func (c *Console) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -240,6 +251,15 @@ func extendedColor(ps []string) (tcell.Color, int) {
 		}
 	}
 	return tcell.ColorDefault, 0
+}
+
+// Pending reports whether the last output line is unfinished, which is
+// what a program waiting for an answer looks like: it writes its question
+// ("Stage this hunk [y,n,q]? ") without a newline and then reads.
+func (c *Console) Pending() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.partial) > 0
 }
 
 // HasContent reports whether any output or prompt has been recorded.
@@ -424,7 +444,7 @@ func (a *App) runInConsole(cmdline, cwd string) {
 		return
 	}
 	pw.Close()
-	a.cmdStdin = stdin
+	a.cmdStdin, a.cmdFed = stdin, false
 	a.running = cmd
 	a.runStart = time.Now()
 	a.restorePanels = !a.hideAll // FAR: panels come back after the command if they were visible
@@ -483,7 +503,7 @@ func consoleEnv(cols, rows int) []string {
 }
 
 func (a *App) commandDone(err error) {
-	a.running = nil
+	a.running, a.cmdFed = nil, false
 	if a.cmdStdin != nil {
 		_ = a.cmdStdin.Close()
 		a.cmdStdin = nil
@@ -532,10 +552,34 @@ func (a *App) sendStdin(line string) {
 	if a.cmdStdin == nil {
 		return
 	}
-	a.console.Println(line, a.theme.Cmd)
+	a.console.Echo(line, a.theme.Cmd)
+	a.cmdFed = true // this command is being talked to: Enter keeps doing it
 	if _, err := a.cmdStdin.Write([]byte(line + "\n")); err != nil {
 		a.closeStdin()
 	}
+}
+
+// feeding reports whether Enter gives what is typed to the running
+// command instead of queueing it as the next one: either the command
+// stopped mid-line to ask something, or it has been answered before.
+func (a *App) feeding() bool {
+	return a.running != nil && (a.cmdFed || a.console.Pending())
+}
+
+// queueTyped takes a command typed while another one is running: it waits
+// its turn and starts when the running one has finished, as in a shell.
+func (a *App) queueTyped(line string) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return
+	}
+	a.addHistory(line)
+	if a.handleCd(line) {
+		return // moving a panel needs no turn
+	}
+	cwd := a.tab().diskDir()
+	a.cmdQueue = append(a.cmdQueue, queuedCommand{line: a.expandPlaceholders(line), cwd: cwd})
+	a.console.Println(fmt.Sprintf("[queued: %s]", line), a.theme.ListDim.Background(bgOf(a.theme.Cmd)))
 }
 
 // closeStdin ends the running command's input (Ctrl+D).

@@ -131,6 +131,9 @@ func TestConsoleRunAndStay(t *testing.T) {
 
 // A running command reads what is typed: Enter sends the line, Ctrl+D ends
 // the input (sort prints its sorted input only at end of input).
+// A program that reads without asking anything — no half-written line on
+// screen — gets what is typed only when Ctrl+Enter says so; plain Enter
+// would queue it as the next command.
 func TestConsoleStdin(t *testing.T) {
 	a, _ := testApp(t)
 	typeText(a, "sort")
@@ -139,9 +142,12 @@ func TestConsoleStdin(t *testing.T) {
 		t.Fatal("command should be running with an input pipe")
 	}
 	typeText(a, "pear")
-	key(a, "Enter")
+	key(a, "Ctrl+Enter") // the first line has to say so
 	typeText(a, "apple")
-	key(a, "Enter")
+	key(a, "Enter") // from then on Enter keeps feeding the same command
+	if len(a.cmdQueue) != 0 {
+		t.Fatalf("feeding a command must not queue anything: %v", a.cmdQueue)
+	}
 	key(a, "Ctrl+D")
 	waitCommand(t, a)
 	out := a.console.Text()
@@ -151,6 +157,85 @@ func TestConsoleStdin(t *testing.T) {
 	if !strings.Contains(out, "^D") || a.cmdStdin != nil {
 		t.Fatalf("Ctrl+D should end the input: %q", out)
 	}
+}
+
+// A command typed while another one runs waits its turn instead of being
+// lost, and runs when the first has finished.
+func TestConsoleQueuesTypedCommands(t *testing.T) {
+	a, _ := testApp(t)
+	if runtime.GOOS == "windows" {
+		typeText(a, "ping -n 2 127.0.0.1")
+	} else {
+		typeText(a, "sleep 1")
+	}
+	key(a, "Enter")
+	if a.running == nil {
+		t.Fatal("the first command should be running")
+	}
+	a.draw()
+	if s := screenText(a); !strings.Contains(s, "Enter: queue it") {
+		t.Fatalf("the input row should say what Enter does:\n%s", s)
+	}
+	typeText(a, "echo second-one")
+	key(a, "Enter")
+	if len(a.cmdQueue) != 1 {
+		t.Fatalf("the typed command should be waiting, queue is %v", a.cmdQueue)
+	}
+	if a.cmd.String() != "" {
+		t.Fatalf("the input row should be empty again, holds %q", a.cmd.String())
+	}
+	if !strings.Contains(a.console.Text(), "[queued: echo second-one]") {
+		t.Fatalf("queuing should be visible:\n%s", a.console.Text())
+	}
+	if len(a.history) == 0 || a.history[len(a.history)-1] != "echo second-one" {
+		t.Fatalf("a queued command belongs in the history: %v", a.history)
+	}
+	waitCommand(t, a) // the first finishes, the queued one starts and finishes
+	if !strings.Contains(a.console.Text(), "second-one") {
+		t.Fatalf("the queued command should have run:\n%s", a.console.Text())
+	}
+	if len(a.cmdQueue) != 0 || a.running != nil {
+		t.Fatalf("nothing should be left over: queue %v running %v", a.cmdQueue, a.running != nil)
+	}
+}
+
+// When the running command has asked something — a line it wrote without
+// finishing — Enter answers it instead of queuing.
+func TestConsoleEnterAnswersAPrompt(t *testing.T) {
+	a, _ := testApp(t)
+	if runtime.GOOS == "windows" {
+		typeText(a, "ping -n 30 127.0.0.1")
+	} else {
+		typeText(a, "sleep 30")
+	}
+	key(a, "Enter")
+	if a.running == nil {
+		t.Fatal("the command should be running")
+	}
+	a.console.Feed([]byte("Stage this hunk [y,n,q]? ")) // a question, no newline
+	if !a.console.Pending() {
+		t.Fatal("an unfinished line is what waiting for an answer looks like")
+	}
+	a.draw()
+	if s := screenText(a); !strings.Contains(s, "Enter: answer the command") {
+		t.Fatalf("the input row should say that Enter answers:\n%s", s)
+	}
+	typeText(a, "y")
+	key(a, "Enter")
+	if len(a.cmdQueue) != 0 {
+		t.Fatalf("an answer must not be queued as a command: %v", a.cmdQueue)
+	}
+	if !strings.Contains(a.console.Text(), "y") {
+		t.Fatalf("the answer should be echoed:\n%s", a.console.Text())
+	}
+	// Ctrl+Enter is the way to queue one anyway.
+	typeText(a, "echo later")
+	key(a, "Ctrl+Enter")
+	if len(a.cmdQueue) != 1 {
+		t.Fatalf("Ctrl+Enter should queue while a question is open: %v", a.cmdQueue)
+	}
+	key(a, "Ctrl+C")
+	waitCommand(t, a)
 }
 
 // Dragging the mouse over console rows marks text and copies it on release.

@@ -1,7 +1,8 @@
 # Typed text goes to the running command's stdin; a mouse drag over console rows copies on release
 
 Date: 2026-10-28
-Status: accepted
+Status: the stdin half is superseded by console-enter-queues-commands.md; the mouse
+selection stands
 
 ## Decision
 Console commands get a stdin pipe. While a command runs, printable keys type into the

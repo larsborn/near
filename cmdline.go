@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/mattn/go-runewidth"
 )
 
 const historyMax = 200
@@ -28,9 +30,16 @@ func (a *App) drawCmdLine() {
 	a.fill(0, y, a.w, 1, th.Cmd)
 	focused := len(a.dialogs) == 0 && !a.qsActive
 	if a.running != nil {
-		// No prompt until the command has terminated; what is typed meanwhile
-		// is input for the command and shown as such.
-		a.cmd.Draw(a, 0, y, a.w, th.Cmd, focused)
+		// No prompt until the command has terminated. What is typed
+		// meanwhile is the next command, unless the running one is asking
+		// something; the hint says which, since the two look the same.
+		hint := " Enter: queue it "
+		if a.feeding() {
+			hint = " Enter: answer the command "
+		}
+		hw := runewidth.StringWidth(hint)
+		a.cmd.Draw(a, 0, y, maxInt(1, a.w-hw), th.Cmd, focused)
+		a.print(a.w-hw, y, hw, th.ListDim.Background(bgOf(th.Cmd)), hint)
 		return
 	}
 	pr := a.prompt()

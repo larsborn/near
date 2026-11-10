@@ -47,9 +47,13 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   (also when the command switched the console to cooked input, in which
   case Ctrl+C arrives as a console event; NEAR restores the console mode
   after every command), `Ctrl+O` bringing the panels back. Nothing reaches
-  the hidden panels. While a command runs, what you type is its input:
-  `Enter` sends the line (echoed in the console), `Ctrl+D` ends the input,
-  so `git add --patch`, `python` prompts and the like work. Dragging the
+  the hidden panels. A command typed while another one runs waits its turn
+  and starts when that one has finished, as in a shell; the console notes
+  it with `[queued: …]`. When the running command has asked something — a
+  line it wrote without finishing it — `Enter` answers it instead, so
+  `git add --patch` and the like work; the right of the input row says
+  which of the two `Enter` will do, `Ctrl+Enter` does the other, and
+  `Ctrl+D` ends the input. Dragging the
   mouse over console rows, in the full view or the band under the panels,
   marks text and copies it to the clipboard on release.
   Programs that need a real terminal (`interactive_commands` in the config:

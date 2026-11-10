@@ -72,6 +72,7 @@ type App struct {
 	sel              conSelection    // mouse selection in the console
 	dirs             *dirCache       // directory listings of network drives
 	cmdStdin         io.WriteCloser  // stdin of the running console command
+	cmdFed           bool            // it has been given input, so Enter keeps feeding it
 	lastClick        time.Time
 	lastClickAt      [2]int
 	lastButtons      tcell.ButtonMask
@@ -359,9 +360,21 @@ func (a *App) handleKey(ev *tcell.EventKey) {
 			delta := map[string]int{"PgUp": rows - 1, "PgDn": -(rows - 1), "Home": 1 << 30, "End": -(1 << 30)}[name]
 			a.console.scrollBy(delta, a.w, rows)
 		case name == "Enter":
-			// What was typed goes to the command's standard input, as in a
-			// terminal (git add --patch, python's input(), ...).
-			a.sendStdin(a.cmd.String())
+			// A command that stopped mid-line is asking something, so the
+			// answer goes to it; otherwise what was typed is the next
+			// command and waits its turn. Ctrl+Enter does the other one.
+			if a.feeding() {
+				a.sendStdin(a.cmd.String())
+			} else {
+				a.queueTyped(a.cmd.String())
+			}
+			a.cmd.Set("")
+		case name == "Ctrl+Enter" || name == "Ctrl+J":
+			if a.feeding() {
+				a.queueTyped(a.cmd.String())
+			} else {
+				a.sendStdin(a.cmd.String())
+			}
 			a.cmd.Set("")
 		case name == "Ctrl+D" || name == "Ctrl+Z":
 			a.closeStdin() // end of input

@@ -165,7 +165,11 @@ and call `a.progress(title, item, -1, -1)`, which redraws and returns false if E
 line go through `runCommandLine` → `runInConsole`: started with stdout/stderr on a pipe, no
 stdin, output fed to `Console` (SGR-aware line buffer) by a goroutine that posts
 `EventConsole`/`EventCommandDone`; `hideAll` is switched on so `draw` shows the console instead
-of the panels, and it stays on. In that view Tab is path completion (`complete.go`: unique
+of the panels, and it stays on. While a command runs, Enter queues what was typed
+(`queueTyped` → `cmdQueue`, the same queue Apply command uses) unless `App.feeding()` says
+the command is being talked to — it left an unfinished line (`Console.Pending`) or has been
+fed before (`cmdFed`) — in which case Enter answers it; Ctrl+Enter does the other one and
+`drawCmdLine` says which is which. In that view Tab is path completion (`complete.go`: unique
 match filled in, second Tab on the same text lists candidates in the console). Ctrl+C → `killTree` (platform: taskkill /T or SIGTERM to the
 process group). Programs in `interactive_commands`, Shift+Enter, menu items and the external
 editor use `runShell` instead, which suspends tcell, runs via `shellCommand` (platform file;
