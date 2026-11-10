@@ -47,7 +47,7 @@ func (a *App) expandFor(cmd string, cur *Entry) string {
 		"{files}", strings.Join(files, " "),
 		"{paths}", strings.Join(paths, " "),
 		"{dir}", shQuote(t.Path),
-		"{other}", shQuote(a.other().Path),
+		"{other}", shQuote(a.other().diskDir()),
 		"{name}", shQuote(name),
 		"{ext}", shQuote(ext),
 	)

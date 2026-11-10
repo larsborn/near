@@ -55,6 +55,7 @@ type Tab struct {
 	Err      error
 	posMem   map[string]string // directory -> name the cursor was on
 	Find     *findState        // set while the tab shows Find file results
+	Zip      *zipState         // set while the tab is inside an archive
 	CachedAt time.Time         // when a listing reused from the cache was read; zero if fresh
 
 	// Where this panel has been, as one path rather than a tree: going back

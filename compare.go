@@ -36,6 +36,9 @@ func (a *App) showCompareMenu() {
 // side, differ in size, are newer than their counterpart, or (with content
 // set) have different bytes. Directories are marked only when missing.
 func (a *App) compareDirs(content bool) {
+	if a.inArchive("comparing") {
+		return
+	}
 	t, o := a.tab(), a.other()
 	if t.Path == o.Path {
 		a.setStatus("Both panels show the same directory")
@@ -140,6 +143,9 @@ func readFull(f *os.File, buf []byte) (int, error) {
 // ---------------------------------------------------------------- file diff
 
 func (a *App) compareFiles() {
+	if a.inArchive("comparing") {
+		return
+	}
 	t, o := a.tab(), a.other()
 	e1, e2 := t.Current(), o.Current()
 	if e1 == nil || e2 == nil || e1.IsUp || e2.IsUp || e1.IsDir || e2.IsDir {

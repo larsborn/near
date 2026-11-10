@@ -106,7 +106,28 @@ func (a *App) copyOrMove(move bool) {
 	if len(targets) == 0 {
 		return
 	}
-	a.copyMoveDialog(move, targets, a.other().Path, func(dst string, opts copyOptions) {
+	if t.Zip != nil {
+		if move {
+			a.setErr(fmt.Errorf("moving out of an archive is not possible; F5 extracts a copy"))
+			return
+		}
+		a.copyMoveDialog(false, targets, a.other().diskDir(), func(dst string, _ copyOptions) {
+			dst = strings.TrimSpace(dst)
+			if dst == "" {
+				return
+			}
+			if !filepath.IsAbs(expandPath(dst)) {
+				dst = filepath.Join(a.other().diskDir(), dst)
+			}
+			if err := os.MkdirAll(absPath(dst), 0o755); err != nil {
+				a.setErr(err)
+				return
+			}
+			a.extractToDir(t, targets, absPath(dst))
+		})
+		return
+	}
+	a.copyMoveDialog(move, targets, a.other().diskDir(), func(dst string, opts copyOptions) {
 		dst = strings.TrimSpace(dst)
 		if dst == "" {
 			return
@@ -189,6 +210,9 @@ func (a *App) doCopyOrMove(tab *Tab, targets []Entry, dst string, move bool, opt
 // ---------------------------------------------------------------- rename / mkdir / delete
 
 func (a *App) renameCurrent() {
+	if a.inArchive("renaming") {
+		return
+	}
 	t := a.tab()
 	e := t.Current()
 	if e == nil || e.IsUp {
@@ -221,6 +245,9 @@ func (a *App) renameCurrent() {
 }
 
 func (a *App) makeDir() {
+	if a.inArchive("creating a directory") {
+		return
+	}
 	t := a.tab()
 	a.input("Create directory", "Name:", "", func(name string) {
 		name = strings.TrimSpace(name)
@@ -241,6 +268,9 @@ func (a *App) makeDir() {
 }
 
 func (a *App) deleteSelected(permanent bool) {
+	if a.inArchive("deleting") {
+		return
+	}
 	t := a.tab()
 	targets := t.Targets()
 	if len(targets) == 0 {
@@ -314,6 +344,9 @@ func (a *App) deleteSelected(permanent bool) {
 // ---------------------------------------------------------------- notes
 
 func (a *App) editNote() {
+	if a.inArchive("editing a note") {
+		return
+	}
 	t := a.tab()
 	e := t.Current()
 	if e == nil || e.IsUp {
@@ -487,6 +520,15 @@ func (a *App) viewCurrent() {
 	if e == nil || e.IsUp || e.IsDir {
 		return
 	}
+	if t.Zip != nil {
+		tmp, err := a.zipCopyOut(t.Zip, t.Zip.inner(e.Name))
+		if err != nil {
+			a.setErr(err)
+			return
+		}
+		a.viewFile(tmp)
+		return
+	}
 	a.viewFile(filepath.Join(t.Path, e.Name))
 }
 
@@ -507,6 +549,9 @@ func (a *App) viewFile(full string) {
 }
 
 func (a *App) editCurrent() {
+	if a.inArchive("editing") {
+		return
+	}
 	t := a.tab()
 	e := t.Current()
 	if e == nil || e.IsUp || e.IsDir {

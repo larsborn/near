@@ -55,6 +55,13 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   Programs that need a real terminal (`interactive_commands` in the config:
   editors, pagers, shells, ssh) run outside instead, as does anything sent
   with `Shift+Enter`.
+- **Browse inside ZIP archives.** `Enter` on a `.zip` opens it like a
+  directory: subdirectories are walked with `Enter`, `..` and `Esc` go back
+  up and out again, `F3` shows a file and `Enter` on one opens it with its
+  program through a temporary copy. `F5` extracts the selection to the
+  other panel. The archive itself is never written to, so renaming,
+  deleting, creating and the rest are refused with a message while you are
+  inside one.
 - **Esc goes to the parent directory**, `Ctrl+Alt+Left` back to where the
   panel came from and `Ctrl+Alt+Right` forward again. Each panel keeps its
   own list, as one path rather than a tree: opening another directory drops

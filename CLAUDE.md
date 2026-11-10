@@ -133,6 +133,12 @@ listing with cursor, selection map, sort, per-directory notes and a cursor-posit
 A tab with `Find != nil` (`findfile.go`, Alt+F7) lists search results instead: entry names are
 paths relative to `Tab.Path`, so `filepath.Join(t.Path, e.Name)` stays valid everywhere; `loadTab`
 re-checks the results instead of reading the directory, `navigate`/`goUp` leave the mode.
+A tab with `Zip != nil` (`zip.go`) browses a zip archive: `Tab.Path` is the archive and
+`zipState.dir` the place inside it, `readTab` lists from `zipState.items` (read once, with
+implied directories added), and `enterCurrent`/`goUp` step in and out. The archive is
+read-only: `inArchive(what)` refuses every mutating action, and `Tab.diskDir()` is what a
+copy destination resolves to so nothing is ever aimed inside a file. Files are extracted to
+a temp dir for F3 and Enter (`cleanZipTemp` on quit) or to the other panel with F5.
 Directory listings of network drives are cached (`dircache.go`, `network_cache_minutes`,
 `isNetworkPath` per platform in `drives_*.go`): `listDirWait` (cached, used by `navigate` and
 `loadTab`) versus `listDirFresh` (disk, used by `reloadTab`/`reloadAll`, which every mutation

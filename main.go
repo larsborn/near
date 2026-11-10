@@ -82,4 +82,5 @@ func main() {
 	app.startIndex()
 	app.run()
 	screen.Fini()
+	cleanZipTemp() // the copies taken out of archives to be looked at
 }

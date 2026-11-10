@@ -55,6 +55,9 @@ type ApplyDialog struct {
 }
 
 func (a *App) applyCommand() {
+	if a.inArchive("applying a command") {
+		return
+	}
 	t := a.tab()
 	targets := t.Targets()
 	if len(targets) == 0 {

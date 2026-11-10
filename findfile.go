@@ -77,6 +77,9 @@ const (
 
 // showFindFile opens the Find file dialog with the last settings.
 func (a *App) showFindFile() {
+	if a.inArchive("searching") {
+		return
+	}
 	spec := a.lastFind
 	if spec.Masks == "" {
 		spec = findSpec{Masks: "*.*", Folders: true, Links: true}

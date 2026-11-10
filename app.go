@@ -499,6 +499,10 @@ func (a *App) loadTab(t *Tab) { a.readTab(t, true) }
 func (a *App) reloadTab(t *Tab) { a.readTab(t, false) }
 
 func (a *App) readTab(t *Tab, cached bool) {
+	if t.Zip != nil {
+		a.applyZip(t)
+		return
+	}
 	if t.Find != nil {
 		a.applyFind(t)
 		return
@@ -561,7 +565,7 @@ func (a *App) navigate(t *Tab, path, cursorName string) error {
 		t.pushHist(path)
 	}
 	t.Path = path
-	t.Find = nil
+	t.Find, t.Zip = nil, nil
 	t.Cursor, t.Top = 0, 0
 	t.Selected = map[string]bool{}
 	t.Apply(entries, notes, err)
@@ -589,6 +593,10 @@ func (a *App) enterCurrent() {
 		a.goUp()
 		return
 	}
+	if t.Zip != nil {
+		a.enterZipEntry(t, e)
+		return
+	}
 	full := filepath.Join(t.Path, e.Name)
 	if e.IsDir {
 		if err := a.navigate(t, full, ""); err != nil {
@@ -596,7 +604,28 @@ func (a *App) enterCurrent() {
 		}
 		return
 	}
+	if isZipName(e.Name) {
+		a.enterArchive(t, full)
+		return
+	}
 	a.openWithOS(full)
+}
+
+// enterZipEntry opens a directory inside the archive, or a temporary copy
+// of a file with the program it belongs to.
+func (a *App) enterZipEntry(t *Tab, e *Entry) {
+	inner := t.Zip.inner(e.Name)
+	if e.IsDir {
+		a.zipGoTo(t, inner)
+		return
+	}
+	tmp, err := a.zipCopyOut(t.Zip, inner)
+	if err != nil {
+		a.setErr(err)
+		return
+	}
+	a.openWithOS(tmp)
+	a.setStatus("Opened a temporary copy of " + e.Name + "; changes to it are not written back")
 }
 
 // goBackForward steps through the panel's own list of directories: -1 is
@@ -630,6 +659,10 @@ func (a *App) goBackForward(step int) {
 
 func (a *App) goUp() {
 	t := a.tab()
+	if t.Zip != nil {
+		a.zipUp(t)
+		return
+	}
 	if t.Find != nil {
 		// Leaving the search results shows the directory itself again.
 		a.leaveFind(t)

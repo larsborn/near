@@ -31,6 +31,9 @@ type menuEntry struct {
 // showContextMenu opens the context menu for the current entry (or the
 // selection) of the active panel.
 func (a *App) showContextMenu() {
+	if a.inArchive("the context menu") {
+		return
+	}
 	t := a.tab()
 	cur := t.Current()
 	if cur == nil || cur.IsUp {

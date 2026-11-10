@@ -155,7 +155,10 @@ func (a *App) drawPanel(idx, x, y, w, h int) {
 		flag += " hidden "
 	}
 	pathRow := t.Path
-	if t.Find != nil {
+	switch {
+	case t.Zip != nil:
+		pathRow = t.Zip.label()
+	case t.Find != nil:
 		pathRow = t.Find.label(t.Path, inner-len(flag))
 	}
 	a.print(ix, y+1, inner-len(flag), pst, fitRight(pathRow, inner-len(flag)))

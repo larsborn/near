@@ -42,6 +42,9 @@ type MassRenameDialog struct {
 }
 
 func (a *App) massRename() {
+	if a.inArchive("mass rename") {
+		return
+	}
 	t := a.tab()
 	targets := t.Targets()
 	if len(targets) == 0 {
