@@ -140,9 +140,11 @@ func (d *SearchDialog) HandleKey(a *App, ev *tcell.EventKey) {
 		d.cursor = clampInt(d.cursor-rows, 0, maxInt(0, len(d.results)-1))
 	case "PgDn":
 		d.cursor = clampInt(d.cursor+rows, 0, maxInt(0, len(d.results)-1))
-	case "Home":
+	// Home and End belong to the query being typed, like everywhere else a
+	// line is edited; the result list gets them with Ctrl.
+	case "Ctrl+Home":
 		d.cursor = 0
-	case "End":
+	case "Ctrl+End":
 		d.cursor = maxInt(0, len(d.results)-1)
 	default:
 		if d.edit.HandleKey(ev, a) {
