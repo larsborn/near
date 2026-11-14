@@ -190,6 +190,15 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   `Esc` cancels at any time, even in the middle of a large file on a slow
   share, and removes the partial target. `Shift+Up`/`Shift+Down` toggle the
   selection and move, as in FAR.
+- **Copy to another name** (`Shift+F5`) is FAR's counterpart to `Shift+F6`:
+  it asks for a name, pre-filled with the current one, and copies the entry
+  under the cursor beside itself rather than to the other panel — the quick
+  way to keep a backup of a file you are about to change. A whole path may be
+  typed instead of a bare name (relative ones resolve against the entry's own
+  directory), a directory is copied with everything in it, an existing name
+  is confirmed before it is overwritten, and an existing directory means
+  "copy into it". Like `Shift+F6` it works on the entry under the cursor
+  whatever is selected, and it leaves the selection alone.
 - **Background transfers.** The dialog's `[ Background ]` button (hotkey
   `B`) queues the copy or move without a progress box, and `B` in a running
   progress box sends that transfer to the background too. All transfers go

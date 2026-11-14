@@ -409,6 +409,7 @@ edit_new = ["Shift+F4"]                # FAR: edit a new file
 edit_external = ["Ctrl+F4"]            # open in the external editor
 copy_path = ["Ctrl+Alt+Insert"]        # copy the full path of the current entry to the clipboard
 copy = ["F5"]
+copy_as = ["Shift+F5"]              # FAR: copy the entry under the cursor to another name beside it
 move = ["F6"]
 rename = ["Shift+F6"]
 mass_rename = ["Ctrl+F6", "Alt+F6"]

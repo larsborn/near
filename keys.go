@@ -233,6 +233,7 @@ var actionHelp = []struct{ Action, Help string }{
 	{"edit_external", "Edit file in the external editor"},
 	{"copy_path", "Copy the full path of the current entry (or the directory) to the clipboard"},
 	{"copy", "Copy to other panel"},
+	{"copy_as", "Copy current entry to another name beside it"},
 	{"move", "Move to other panel"},
 	{"rename", "Rename current entry"},
 	{"mass_rename", "Mass rename selected entries"},

@@ -182,7 +182,9 @@ func (a *App) doCopyOrMove(tab *Tab, targets []Entry, dst string, move bool, opt
 		for _, j := range jobs {
 			t.jobs = append(t.jobs, transferJob{src: j.src, dst: j.dst, name: j.name})
 		}
-		tab.Selected = map[string]bool{}
+		if !opts.KeepSelection {
+			tab.Selected = map[string]bool{}
+		}
 		a.startTransfer(t, opts.Background)
 	}
 	switch policy {
@@ -208,6 +210,50 @@ func (a *App) doCopyOrMove(tab *Tab, targets []Entry, dst string, move bool, opt
 }
 
 // ---------------------------------------------------------------- rename / mkdir / delete
+
+// copyAsCurrent is FAR's Shift+F5: copy the entry under the cursor to
+// another name beside it. The counterpart of Shift+F6, which renames it
+// instead, so it works the same way — the cursor entry whatever is
+// selected, and the selection is left alone afterwards. A path may be
+// typed instead of a bare name, relative to the entry's own directory.
+func (a *App) copyAsCurrent() {
+	if a.inArchive("copying to a new name") {
+		return
+	}
+	t := a.tab()
+	e := t.Current()
+	if e == nil || e.IsUp {
+		return
+	}
+	src := filepath.Join(t.Path, e.Name)
+	dir, old := t.Path, e.Name
+	if t.Find != nil {
+		// A search result is named by its relative path; copy it beside itself.
+		dir, old = filepath.Join(t.Path, filepath.Dir(e.Name)), filepath.Base(e.Name)
+	}
+	title := "Copy"
+	if e.IsDir {
+		title = "Copy directory"
+	}
+	a.input(title, "Copy "+fitRight(old, 40)+" to:", old, func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		dst := expandPath(name)
+		if !filepath.IsAbs(dst) {
+			dst = filepath.Join(dir, dst)
+		}
+		dst = absPath(dst)
+		// Copying a file onto itself would truncate it. An existing
+		// directory is fine: the entry is then copied into it, as with F5.
+		if sameFile(src, dst) && !isDir(dst) {
+			a.setErr(fmt.Errorf("%s is the entry being copied", name))
+			return
+		}
+		a.doCopyOrMove(t, []Entry{*e}, dst, false, copyOptions{KeepTimes: true, KeepSelection: true})
+	})
+}
 
 func (a *App) renameCurrent() {
 	if a.inArchive("renaming") {

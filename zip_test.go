@@ -168,7 +168,7 @@ func TestZipIsReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range []string{"F8", "Shift+F8", "Shift+F6", "F7", "F4", "F6", "Ctrl+F6", "Ctrl+N", "Ctrl+G", "Alt+F7"} {
+	for _, k := range []string{"F8", "Shift+F8", "Shift+F5", "Shift+F6", "F7", "F4", "F6", "Ctrl+F6", "Ctrl+N", "Ctrl+G", "Alt+F7"} {
 		a.status, a.statusErr = "", false
 		key(a, k)
 		if len(a.dialogs) > 0 {

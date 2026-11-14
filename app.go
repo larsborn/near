@@ -972,6 +972,8 @@ func (a *App) doAction(action string) {
 		a.setStatus("Copied " + p)
 	case "copy":
 		a.copyOrMove(false)
+	case "copy_as":
+		a.copyAsCurrent()
 	case "move":
 		a.copyOrMove(true)
 	case "rename":

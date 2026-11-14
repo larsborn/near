@@ -13,10 +13,11 @@ var existingPolicies = []string{"Ask", "Overwrite", "Skip", "Only newer"}
 
 // copyOptions are the choices made in the copy/move dialog.
 type copyOptions struct {
-	Policy     string // one of existingPolicies
-	KeepTimes  bool   // preserve modification times
-	Deref      bool   // copy the contents of symbolic links instead of the links
-	Background bool   // queue in the background instead of a modal progress box
+	Policy        string // one of existingPolicies
+	KeepTimes     bool   // preserve modification times
+	Deref         bool   // copy the contents of symbolic links instead of the links
+	Background    bool   // queue in the background instead of a modal progress box
+	KeepSelection bool   // the operation was about the cursor entry, so leave the selection alone
 }
 
 // CopyMoveDialog is FAR's Copy / Rename-Move dialog.
