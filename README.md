@@ -190,6 +190,14 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   `Esc` cancels at any time, even in the middle of a large file on a slow
   share, and removes the partial target. `Shift+Up`/`Shift+Down` toggle the
   selection and move, as in FAR.
+- **Overwriting shows what is at stake.** With "Ask", the "Destination
+  exists" box compares the two rather than only counting them: for a single
+  clash the destination's path, then the existing entry and the new one on a
+  row each with their size and timestamp, and how the new one differs —
+  `newer, larger`, `older, smaller`, `same size and time`, or
+  `a file would replace a directory`. Several clashes get a row each with
+  the sizes side by side, the longest lists cut off with "… and N more".
+  "newer" means exactly what the "Only newer" policy acts on.
 - **Copy to another name** (`Shift+F5`) is FAR's counterpart to `Shift+F6`:
   it asks for a name, pre-filled with the current one, and copies the entry
   under the cursor beside itself rather than to the other panel — the quick

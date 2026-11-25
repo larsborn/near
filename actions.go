@@ -162,7 +162,7 @@ func (a *App) doCopyOrMove(tab *Tab, targets []Entry, dst string, move bool, opt
 	// Destination path per entry.
 	type job struct{ src, dst, name string }
 	var jobs []job
-	conflicts := 0
+	var conflicts []conflict
 	for _, e := range targets {
 		src := filepath.Join(tab.Path, e.Name)
 		d := dst
@@ -171,8 +171,9 @@ func (a *App) doCopyOrMove(tab *Tab, targets []Entry, dst string, move bool, opt
 			// entry itself, not the directories above it.
 			d = filepath.Join(dst, filepath.Base(e.Name))
 		}
-		if _, err := os.Lstat(d); err == nil && !sameFile(src, d) {
-			conflicts++
+		if di, err := os.Lstat(d); err == nil && !sameFile(src, d) {
+			si, _ := os.Lstat(src) // nil is fine: the box then shows what it can
+			conflicts = append(conflicts, conflict{name: filepath.Base(d), path: d, dst: di, src: si})
 		}
 		jobs = append(jobs, job{src, d, e.Name})
 	}
@@ -193,8 +194,8 @@ func (a *App) doCopyOrMove(tab *Tab, targets []Entry, dst string, move bool, opt
 	case "Skip", "Only newer":
 		run(false)
 	default: // Ask
-		if conflicts > 0 {
-			a.confirm("Destination exists", []string{fmt.Sprintf("%d entries already exist in the destination.", conflicts)},
+		if len(conflicts) > 0 {
+			a.confirm("Destination exists", a.conflictLines(conflicts),
 				[]string{"Overwrite", "Skip existing", "Cancel"}, func(r int) {
 					switch r {
 					case 0:
