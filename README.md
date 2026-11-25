@@ -21,11 +21,17 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
 
 ## Features
 
-- **Two panels with tabs.** `Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgUp`/`Ctrl+PgDn` or
+- **Two panels with tabs.** `Ctrl+Shift+T` new, `Ctrl+W` close, `Ctrl+PgUp`/`Ctrl+PgDn` or
   `Alt+Left`/`Alt+Right` switch, `Alt+1`..`Alt+9` jump. Panels look like FAR's:
   `Name │ Size │ Date │ Time` with centred titles, the sort mode as a letter at
   the left of the header, `Up` and `Folder` in the size column, a centred
-  `Bytes: …, files: …, folders: …` footer.
+  `Bytes: …, files: …, folders: …` footer. Everywhere a tab can be opened —
+  the search dialog, the folders history, their context menus and hints —
+  follows whatever `new_tab` is bound to, so rebinding it once is enough.
+  `Ctrl+Shift+<letter>` needs a terminal that reports the modifier (tcell
+  asks for modifyOtherKeys/kitty/win32 input); on one that does not, or one
+  that keeps `Ctrl+Shift+T` for its own tabs, bind `new_tab` to something
+  else in the config.
 - **Command line** at the bottom that always has the focus. Printable keys type
   into it; `Tab` still switches panels and the cursor keys still move the
   panel. With text in it, `Enter` runs it in the active panel's directory,
@@ -103,7 +109,7 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   back to a full rebuild when a journal cannot be used (recreated, wrapped
   after a long absence, disabled, non-NTFS). Words match the name, a term with
   `/` matches the path, `*` and `?` are wildcards. `Enter` jumps to the file,
-  `Ctrl+T` opens it in a new tab, `Ctrl+Alt+Insert` copies the selected
+  `Ctrl+Shift+T` opens it in a new tab, `Ctrl+Alt+Insert` copies the selected
   result's path and with `Shift` only the directory it is in, `Ctrl+R`
   rebuilds the index. `Up`/`Down`/`PgUp`/`PgDn` move through the results and
   `Ctrl+Home`/`Ctrl+End` jump to the first and last one — plain `Home` and
@@ -163,7 +169,7 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   the one under the cursor after asking. They are kept in `shortcuts.toml` next to the
   config and also appear in the locations dialog.
 - **Histories**, FAR's keys: `Alt+F8` commands (Enter runs, Shift+Enter edits,
-  Delete removes), `Alt+F12` folders (Enter goes, Ctrl+T new tab, Shift+Enter
+  Delete removes), `Alt+F12` folders (Enter goes, `Ctrl+Shift+T` new tab, Shift+Enter
   other panel), `Alt+F11` viewed and edited files (Enter views, F4 edits,
   Ctrl+Enter jumps to it). Searchable by typing, kept across sessions.
 - **Compare** (`Shift+F3`): mark the entries that differ between the panels
@@ -194,8 +200,10 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   exists" box compares the two rather than only counting them: for a single
   clash the destination's path, then the existing entry and the new one on a
   row each with their size and timestamp, and how the new one differs —
-  `newer, larger`, `older, smaller`, `same size and time`, or
-  `a file would replace a directory`. Several clashes get a row each with
+  `newer, larger`, `older, smaller`, `newer, same size`, `same size and
+  time`, or `a file would replace a directory`. Sameness is spelled out
+  rather than left to be inferred: two files of exactly the same size are
+  usually the same file again. Several clashes get a row each with
   the sizes side by side, the longest lists cut off with "… and N more".
   "newer" means exactly what the "Only newer" policy acts on.
 - **Copy to another name** (`Shift+F5`) is FAR's counterpart to `Shift+F6`:

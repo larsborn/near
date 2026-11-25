@@ -1126,7 +1126,7 @@ func (a *App) showHelp() {
 		"Find file (Alt+F7): FAR's dialog; masks like *.go;*.md, text or hex content, the",
 		"               results replace the panel (Esc or .. returns to the directory).",
 		"Search dialog (Ctrl+F): words match the file name, a term with / matches the path,",
-		"               * and ? are wildcards. Enter opens, Ctrl+T opens in a new tab.",
+		"               * and ? are wildcards. Enter opens, "+a.keyFor("new_tab")+" opens in a new tab.",
 		"               Up/Down walk the results, Ctrl+Home/Ctrl+End jump to the ends;",
 		"               Home and End edit the query, as in every text box.",
 		"Mass rename: regex Find/Replace with $1 groups and {n} {name} {ext} {date}",

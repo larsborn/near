@@ -246,7 +246,7 @@ func TestBackspaceNeverGoesUp(t *testing.T) {
 
 func TestTabs(t *testing.T) {
 	a, data := testApp(t)
-	key(a, "Ctrl+T")
+	key(a, "Ctrl+Shift+T")
 	if len(a.panel().Tabs) != 2 || a.panel().Active != 1 {
 		t.Fatalf("tabs=%d active=%d", len(a.panel().Tabs), a.panel().Active)
 	}
@@ -666,7 +666,7 @@ func TestAltTypingQuickSearch(t *testing.T) {
 		t.Fatal("Esc should end the quick search")
 	}
 	// Bound Alt combinations still act (Alt+1 is tab 1).
-	key(a, "Ctrl+T")
+	key(a, "Ctrl+Shift+T")
 	key(a, "Alt+1")
 	if a.panel().Active != 0 || a.qsActive {
 		t.Fatal("Alt+1 must switch tabs, not search")

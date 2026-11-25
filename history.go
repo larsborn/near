@@ -115,14 +115,14 @@ func (a *App) showDirHistory() {
 	})
 	d.Searchable = true
 	d.Width = clampInt(a.w-10, 40, 100)
-	d.Hint = "Enter: go   Ctrl+T: open in new tab   Shift+Enter: other panel   Delete: remove   Esc: close"
+	d.Hint = "Enter: go   " + a.keyFor("new_tab") + ": open in new tab   Shift+Enter: other panel   Delete: remove   Esc: close"
 	d.OnKey = func(a *App, d *ListDialog, ev *tcell.EventKey) bool {
 		if d.Cursor >= len(d.Items) {
 			return false
 		}
 		path := d.Items[d.Cursor].Data.(string)
 		switch keyName(ev) {
-		case "Ctrl+T":
+		case a.keyFor("new_tab"): // whatever that action is bound to
 			a.pop()
 			a.doAction("new_tab")
 			if err := a.navigate(a.tab(), path, ""); err != nil {

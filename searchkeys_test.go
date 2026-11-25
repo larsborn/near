@@ -58,7 +58,7 @@ func TestSearchDialogCopyAndMenu(t *testing.T) {
 	for _, it := range m.Items {
 		labels += it.Label + "|" + it.Right + "|"
 	}
-	for _, s := range []string{"Go to the file|Enter", "Open in a new tab|Ctrl+T", "Copy the path|Ctrl+Alt+Insert", "Copy the directory|Ctrl+Alt+Shift+Insert"} {
+	for _, s := range []string{"Go to the file|Enter", "Open in a new tab|Ctrl+Shift+T", "Copy the path|Ctrl+Alt+Insert", "Copy the directory|Ctrl+Alt+Shift+Insert"} {
 		if !strings.Contains(labels, s) {
 			t.Fatalf("the menu lacks %q: %s", s, labels)
 		}

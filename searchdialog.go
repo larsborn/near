@@ -128,7 +128,7 @@ func (d *SearchDialog) HandleKey(a *App, ev *tcell.EventKey) {
 		a.pop()
 	case "Enter":
 		d.open(a, false)
-	case "Ctrl+T", "Shift+Enter", "Ctrl+Enter":
+	case a.keyFor("new_tab"), "Shift+Enter", "Ctrl+Enter": // the bound new-tab key, whatever it is
 		d.open(a, true)
 	case "Ctrl+R", "F5":
 		a.rebuildIndex()
@@ -185,7 +185,7 @@ func (d *SearchDialog) showMenu(a *App) {
 	copyKey := a.keyFor("copy_path")
 	items := []ListItem{
 		{Label: "Go to the file", Hotkey: 'G', Right: "Enter", Data: "goto"},
-		{Label: "Open in a new tab", Hotkey: 'O', Right: "Ctrl+T", Data: "tab"},
+		{Label: "Open in a new tab", Hotkey: 'O', Right: a.keyFor("new_tab"), Data: "tab"},
 		{Sep: true},
 		{Label: "Copy the path", Hotkey: 'C', Right: copyKey, Data: "copy"},
 		{Label: "Copy the directory", Hotkey: 'D', Right: shiftKey(copyKey), Data: "copydir"},
@@ -310,7 +310,8 @@ func (d *SearchDialog) Draw(a *App) {
 	default:
 		status = fmt.Sprintf("%d matches", d.total)
 	}
-	foot := fmt.Sprintf("Enter: go to   Ctrl+T: new tab   Ctrl+R: rebuild   %s: menu   Esc: close", a.keyFor("context_menu"))
+	foot := fmt.Sprintf("Enter: go to   %s: new tab   Ctrl+R: rebuild   %s: menu   Esc: close",
+		a.keyFor("new_tab"), a.keyFor("context_menu"))
 	if d.note != "" {
 		foot = d.note
 	}

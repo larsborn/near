@@ -273,7 +273,7 @@ var actionHelp = []struct{ Action, Help string }{
 	{"history_prev", "Command line: previous history entry"},
 	{"history_next", "Command line: next history entry"},
 	{"history", "Command history (Enter runs, Shift+Enter edits, Delete removes)"},
-	{"folder_history", "Folders history (Enter goes, Ctrl+T new tab, Delete removes)"},
+	{"folder_history", "Folders history (Enter goes, the new-tab key opens a tab, Delete removes)"},
 	{"file_history", "View / edit history (Enter views, F4 edits, Ctrl+Enter goes to file)"},
 	{"compare", "Compare directories (mark differences) or files side by side"},
 	{"transfers", "Background transfers (Enter shows progress, Delete cancels)"},

@@ -94,12 +94,27 @@ func compareNote(dst, src os.FileInfo) string {
 		}
 		return "a file would replace a directory"
 	}
+	// Sameness is said out loud, not left to be inferred from silence: two
+	// files of exactly the same size are very likely the same file again,
+	// which is the whole question when the box appears.
+	newer := src.ModTime().After(dst.ModTime())
+	older := src.ModTime().Before(dst.ModTime())
+	if !newer && !older {
+		if src.IsDir() {
+			return "same time"
+		}
+		if src.Size() == dst.Size() {
+			return "same size and time"
+		}
+	}
 	var parts []string
 	switch {
-	case src.ModTime().After(dst.ModTime()):
+	case newer:
 		parts = append(parts, "newer")
-	case src.ModTime().Before(dst.ModTime()):
+	case older:
 		parts = append(parts, "older")
+	default:
+		parts = append(parts, "same time")
 	}
 	if !src.IsDir() {
 		switch {
@@ -107,13 +122,9 @@ func compareNote(dst, src os.FileInfo) string {
 			parts = append(parts, "larger")
 		case src.Size() < dst.Size():
 			parts = append(parts, "smaller")
+		default:
+			parts = append(parts, "same size")
 		}
-	}
-	if len(parts) == 0 {
-		if src.IsDir() {
-			return "same time"
-		}
-		return "same size and time"
 	}
 	return strings.Join(parts, ", ")
 }

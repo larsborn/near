@@ -40,6 +40,11 @@ and the point is to tell them apart. Directories show `<DIR>`. Timestamps use th
 would act on. A directory about to replace a file, or the reverse, is called out instead of
 being described by size.
 
+Sameness is stated rather than implied by its absence: `newer, same size`, `same time,
+larger`, `same size and time`. An earlier version said only `newer` when the sizes matched,
+which left the most informative fact — that the two are byte-for-byte the same length, so
+probably the same file again — to be worked out by comparing two long numbers by eye.
+
 ## Why
 Asked for directly, against a screenshot of the old box, which said only "1 entries already
 exist in the destination." — a question with no information to answer it. Overwriting is

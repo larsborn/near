@@ -129,6 +129,14 @@ func TestCompareNote(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Same size, different time: the case that matters most, since it
+	// usually means the same file downloaded again.
+	clash(t, data, "again.txt", "12345", conflictNew)
+	sameSizeNewer := statOf(t, a, "again.txt")
+	// Same time, different size.
+	clash(t, data, "wide.txt", "1234567890", conflictOld)
+	sameTimeBigger := statOf(t, a, "wide.txt")
+
 	cases := []struct {
 		name     string
 		dst, src os.FileInfo
@@ -137,6 +145,9 @@ func TestCompareNote(t *testing.T) {
 		{"bigger and newer", small, big, "newer, larger"},
 		{"smaller and older", big, small, "older, smaller"},
 		{"the same file", small, small, "same size and time"},
+		{"same size, newer", small, sameSizeNewer, "newer, same size"},
+		{"same size, older", sameSizeNewer, small, "older, same size"},
+		{"same time, bigger", small, sameTimeBigger, "same time, larger"},
 		{"a directory over a file", small, dir, "a directory would replace a file"},
 		{"a file over a directory", dir, small, "a file would replace a directory"},
 		{"nothing to compare", small, nil, ""},
