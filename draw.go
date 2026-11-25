@@ -42,11 +42,26 @@ func (a *App) drawAll() {
 	// The panel area is blank where no panel is drawn: hidden panels, and
 	// the rows below a panel made shorter with Ctrl+Down.
 	a.fill(0, 0, a.w, ph, a.theme.Cmd)
+	// Hiding one panel frees a column, and the output is what that space is
+	// good for: the console moves into it, full height, instead of leaving
+	// it blank with the tail squeezed into a band at the bottom.
+	var conCol rect
+	if !a.hideAll && a.hidden[0] != a.hidden[1] && a.console.HasContent() {
+		// A column of air on the side the panel is on, so the output does
+		// not run into its border.
+		if a.hidden[0] {
+			conCol = rect{0, 0, pw - 1, ph}
+		} else {
+			conCol = rect{pw + 1, 0, a.w - pw - 1, ph}
+		}
+	}
 	// With no status message the console (full view or the band under the
 	// panels) also takes the status row, so the prompt sits directly under
-	// the last output line.
-	consoleOnly := a.status == "" && (a.hideAll || a.consoleBand() > 0)
-	if a.hideAll {
+	// the last output line. A console in a column leaves that row alone,
+	// since it is only half the width.
+	consoleOnly := a.status == "" && conCol.w <= 0 && (a.hideAll || a.consoleBand() > 0)
+	switch {
+	case a.hideAll:
 		// Without a message to show, the console also takes the status row so
 		// that the prompt sits directly under the output, like a shell.
 		rows := ph
@@ -54,22 +69,33 @@ func (a *App) drawAll() {
 			rows++
 			a.fill(0, ph, a.w, 1, a.theme.Cmd) // the status row keeps the console colours
 		}
-		a.drawConsole(0, rows, true)
-	} else {
+		a.drawConsole(0, 0, a.w, rows, true)
+	default:
+		// The panel left on its own takes the whole height when the console
+		// has the other column: a band under it would only repeat the tail.
+		h0, h1 := a.panelHeight(0), a.panelHeight(1)
+		if conCol.w > 0 {
+			h0, h1 = ph, ph
+		}
 		if !a.hidden[0] {
-			a.drawPanel(0, 0, 0, pw, a.panelHeight(0))
+			a.drawPanel(0, 0, 0, pw, h0)
 		}
 		if !a.hidden[1] {
-			a.drawPanel(1, pw, 0, a.w-pw, a.panelHeight(1))
+			a.drawPanel(1, pw, 0, a.w-pw, h1)
 		}
-		// The tail of the last command's output stays visible under the panels.
-		if band := a.consoleBand(); band > 0 {
-			rows := band
-			if consoleOnly {
-				rows++ // the status row too
-				a.fill(0, ph, a.w, 1, a.theme.Cmd)
+		switch {
+		case conCol.w > 0:
+			a.drawConsole(conCol.x, conCol.y, conCol.w, conCol.h, false)
+		default:
+			// The tail of the last command's output stays visible under the panels.
+			if band := a.consoleBand(); band > 0 {
+				rows := band
+				if consoleOnly {
+					rows++ // the status row too
+					a.fill(0, ph, a.w, 1, a.theme.Cmd)
+				}
+				a.drawConsole(0, a.panelArea()-band, a.w, rows, false)
 			}
-			a.drawConsole(a.panelArea()-band, rows, false)
 		}
 	}
 	if !consoleOnly {

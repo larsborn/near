@@ -60,7 +60,8 @@ func (a *App) consoleMouse(ev *tcell.EventMouse, pressed, buttons tcell.ButtonMa
 	switch {
 	case a.sel.dragging:
 		if buttons&tcell.ButtonPrimary != 0 {
-			a.sel.cx, a.sel.cy = clampInt(x, 0, a.w-1), clampInt(y, a.conArea.y, a.conArea.y+a.conArea.h-1)
+			r := a.conArea
+			a.sel.cx, a.sel.cy = clampInt(x, r.x, r.x+r.w-1), clampInt(y, r.y, r.y+r.h-1)
 			return true
 		}
 		a.sel.dragging = false
@@ -74,10 +75,10 @@ func (a *App) consoleMouse(ev *tcell.EventMouse, pressed, buttons tcell.ButtonMa
 	case !a.inConsole(x, y):
 		return false
 	case buttons&tcell.WheelUp != 0 && a.hideAll:
-		a.console.scrollBy(3, a.w, a.conArea.h)
+		a.console.scrollBy(3, a.conArea.w, a.conArea.h)
 		return true
 	case buttons&tcell.WheelDown != 0 && a.hideAll:
-		a.console.scrollBy(-3, a.w, a.conArea.h)
+		a.console.scrollBy(-3, a.conArea.w, a.conArea.h)
 		return true
 	case pressed&tcell.ButtonPrimary != 0:
 		a.sel = conSelection{active: true, dragging: true, ax: x, ay: y, cx: x, cy: y}
@@ -131,7 +132,7 @@ func (a *App) drawConsoleSelection() {
 		return
 	}
 	for y := a.conArea.y; y < a.conArea.y+a.conArea.h; y++ {
-		for x := 0; x < a.w; x++ {
+		for x := a.conArea.x; x < a.conArea.x+a.conArea.w; x++ {
 			if !a.sel.contains(x, y) {
 				continue
 			}

@@ -149,7 +149,10 @@ after `slowDirDelay` a "Reading directory…" box polls for Esc, which returns `
 so `navigate`/`loadTab` keep the previous state. `listDirFn` is the hook tests use to slow it.
 `draw.go` lays out: two panels (`panelChrome` = 7 fixed rows per panel, `bottomRows` = 3 for
 status, command line, key bar), hidden/resized panels (`hidden`, `hideAll`, `heights`, `split`),
-then the dialog stack. The FAR-like column layout (centred titles, `│` separators, sort letter,
+then the dialog stack. With exactly one panel hidden the console takes the freed column at full
+height and the lone panel grows to the full height instead of leaving room for the band
+(`decisions/console-fills-a-hidden-panels-column.md`); `drawConsole(x, top, w, height, full)`
+is therefore not always full width, and everything mouse-related works off `App.conArea`. The FAR-like column layout (centred titles, `│` separators, sort letter,
 `Up`/`Folder`, centred footer) is matched by `TestPanelLooksLikeFar`.
 
 **Copies and moves** (`transfers.go`) are `transfer`s on a single `transferQueue` whose one

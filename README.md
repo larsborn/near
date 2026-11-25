@@ -45,7 +45,8 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   captured, coloured, into a console shown while it runs; the prompt returns
   when it has terminated. As in FAR, the panels come back afterwards if they
   were visible, with the tail of the output staying visible in a band under
-  them (`console_rows`, default 6), and with the panels switched off (`Ctrl+O`) you stay in the
+  them (`console_rows`, default 6) or filling the column of a hidden panel,
+  and with the panels switched off (`Ctrl+O`) you stay in the
   console like in a shell: commands at the bottom, output accumulating above,
   `Up`/`Down` recalling the history, `PgUp`/`PgDn` scrolling, `Tab`
   completing the path at the end of the line (a unique match is filled in,
@@ -177,7 +178,11 @@ FAR Manager. One static binary; runs on Linux, macOS and Windows.
   file of each panel side by side with changed, added and removed lines
   coloured and `n`/`p` to jump between differences.
 - **Panel control**, FAR's keys: `Ctrl+O` hides both panels, `Ctrl+P` the
-  inactive one, `Ctrl+F1`/`Ctrl+F2` left/right; `Ctrl+Up`/`Ctrl+Down` make
+  inactive one, `Ctrl+F1`/`Ctrl+F2` left/right. A hidden panel keeps its
+  width, as in FAR, and the console moves into the column it left: the whole
+  tail of the last command becomes readable beside the remaining panel,
+  which then takes the full height instead of giving rows to a band that
+  would only repeat the same lines. `Ctrl+Up`/`Ctrl+Down` make
   both panels shorter/taller, `Ctrl+Shift+Up`/`Ctrl+Shift+Down` the current
   one, `Ctrl+Left`/`Ctrl+Right` move the divider (while the command line is
   empty). `Ctrl+U` swaps panels. Sizes are kept across sessions.

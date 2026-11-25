@@ -371,15 +371,17 @@ func (c *Console) scrollBy(n, w, rows int) {
 // drawConsole paints the newest console rows into the screen rows
 // [top, top+height), bottom-aligned. The scroll indicator is only shown in
 // the full console view.
-func (a *App) drawConsole(top, height int, full bool) {
+// drawConsole draws the tail of the output in the given rectangle. It is
+// not always the full width: a hidden panel leaves a column for it.
+func (a *App) drawConsole(x, top, w, height int, full bool) {
 	th := a.theme
-	rows, more := a.console.visualRows(a.w, height)
+	rows, more := a.console.visualRows(w, height)
 	y := top + height - len(rows)
-	a.conArea, a.conRows, a.conRowTop = rect{0, top, a.w, height}, rows, y // for mouse selection
+	a.conArea, a.conRows, a.conRowTop = rect{x, top, w, height}, rows, y // for mouse selection
 	for _, row := range rows {
-		x := 0
+		cx := x
 		for _, s := range row {
-			x += a.print(x, y, a.w-x, s.st, s.text)
+			cx += a.print(cx, y, x+w-cx, s.st, s.text)
 		}
 		y++
 	}
@@ -389,7 +391,7 @@ func (a *App) drawConsole(top, height int, full bool) {
 		if a.console.scroll > 0 {
 			tag = fmt.Sprintf(" ↑%d  PgDn/End back ", a.console.scroll)
 		}
-		a.print(a.w-runewidth.StringWidth(tag), top, runewidth.StringWidth(tag), th.KeyLabel, tag)
+		a.print(x+w-runewidth.StringWidth(tag), top, runewidth.StringWidth(tag), th.KeyLabel, tag)
 	}
 }
 
